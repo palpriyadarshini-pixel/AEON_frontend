@@ -180,9 +180,9 @@ export function App() {
                 <div className="relative overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#181818] p-6 sm:p-8">
                   {/* Background filament strip graphic */}
                   <div
-                    className="absolute inset-0 opacity-20 pointer-events-none"
+                    className="absolute inset-0 opacity-25 pointer-events-none"
                     style={{
-                      backgroundImage: `url('/assets/aeon/overview-strip.svg')`,
+                      backgroundImage: `url('/assets/aeon/overview-strip.jpeg'), url('/assets/aeon/overview-strip.svg')`,
                       backgroundSize: 'cover',
                       backgroundPosition: 'center',
                     }}

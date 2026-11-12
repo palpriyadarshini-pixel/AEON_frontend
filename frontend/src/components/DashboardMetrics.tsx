@@ -112,7 +112,16 @@ export function DashboardMetrics() {
       </div>
 
       {/* Financial Capital Breakdown & Allocation Stage */}
-      <section className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#181818] p-6 sm:p-7">
+      <section className="relative overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#181818] p-6 sm:p-7">
+        {/* Subtle Deep Navy Atmospheric Glow from new assets */}
+        <div
+          className="absolute -right-20 -top-20 w-[420px] h-[420px] opacity-15 pointer-events-none rounded-full blur-2xl"
+          style={{
+            backgroundImage: "url('/assets/aeon/radial-glow-orb.jpeg')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
         <div className="flex flex-col justify-between gap-3 border-b border-[rgba(255,255,255,0.06)] pb-5 sm:flex-row sm:items-center">
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wider text-[#EBEBEB] font-mono">

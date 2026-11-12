@@ -195,7 +195,16 @@ export function AgentDirectory() {
       )}
 
       {/* CREATE AGENT FORM */}
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#181818] p-6 space-y-6">
+      <div className="relative overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#181818] p-6 space-y-6">
+        {/* Subtle Atmospheric Radial Glow */}
+        <div
+          className="absolute -right-20 -top-20 w-72 h-72 opacity-15 pointer-events-none rounded-full blur-2xl"
+          style={{
+            backgroundImage: "url('/assets/aeon/radial-glow-orb.jpeg')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
         <div className="border-b border-[rgba(255,255,255,0.06)] pb-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-[#EBEBEB] font-mono flex items-center gap-2">

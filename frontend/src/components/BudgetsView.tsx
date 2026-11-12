@@ -247,7 +247,16 @@ export function BudgetsView() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#181818] p-5">
+          <div className="relative overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#181818] p-5">
+            {/* Subtle Deep-Blue 3D Ribbon Graphic Accent */}
+            <div
+              className="absolute right-0 bottom-0 w-48 h-48 opacity-10 pointer-events-none"
+              style={{
+                backgroundImage: "url('/assets/aeon/blue-ribbon-3d.jpeg')",
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            />
             {!selectedBudget ? (
               <p className="text-xs text-[#777777] font-mono">Select a budget to inspect reservations</p>
             ) : resLoading ? (

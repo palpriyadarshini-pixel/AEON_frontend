@@ -37,7 +37,7 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void })
     <div
       className="relative min-h-screen w-full flex items-center justify-center lg:justify-start bg-[#121212] overflow-hidden"
       style={{
-        backgroundImage: `url('/assets/aeon/auth-atmosphere.svg')`,
+        backgroundImage: `url('/assets/aeon/auth-atmosphere.jpeg'), url('/assets/aeon/auth-atmosphere.svg')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center right',
       }}

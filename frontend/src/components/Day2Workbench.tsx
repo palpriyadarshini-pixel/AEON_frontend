@@ -172,36 +172,63 @@ export function Day2Workbench() {
 
   return (
     <section className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col justify-between gap-4 border-b border-[rgba(255,255,255,0.06)] pb-5 sm:flex-row sm:items-center">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-[#777777]">
-              CONTROL PLANE
-            </span>
-            <span className="text-[10px] text-[#55585D]">/</span>
-            <span className="text-[10px] font-mono text-[#00F0FF] uppercase tracking-wider">
-              AGENT PURCHASE INTENT
-            </span>
-          </div>
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#EBEBEB]">
-            Autonomous Procurement Dispatcher
-          </h2>
-          <p className="mt-1 text-xs text-[#9EA1A5]">
-            Dispatch agent purchasing intents through quote gathering, ML supplier recommendation, deterministic policy verification, and budget escrow.
-          </p>
+      {/* Top Header with Optional Ambient Telemetry Loop */}
+      <div className="relative overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#181818] p-6 sm:p-7">
+        {/* Ambient Video Loop / Poster fallback */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            poster="/assets/aeon/overview-strip.jpeg"
+            className="h-full w-full object-cover opacity-20 motion-reduce:hidden"
+          >
+            <source src="/assets/aeon/telemetry-loop.mp4" type="video/mp4" />
+          </video>
+          {/* Static fallback for reduced motion */}
+          <div
+            className="hidden h-full w-full object-cover opacity-20 motion-reduce:block"
+            style={{
+              backgroundImage: "url('/assets/aeon/overview-strip.jpeg')",
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#181818] via-[#181818]/90 to-transparent" />
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void refreshAgents()}
-            disabled={refreshingAgents}
-            className="inline-flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#202020] px-3.5 py-2 text-xs font-medium text-[#EBEBEB] transition-colors hover:border-[#00F0FF]/40 hover:text-[#00F0FF] disabled:opacity-50"
-          >
-            <IconRefresh className={`h-3.5 w-3.5 ${refreshingAgents ? 'animate-spin text-[#00F0FF]' : ''}`} />
-            <span>{refreshingAgents ? 'Syncing…' : 'Refresh Agents'}</span>
-          </button>
+        <div className="relative z-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-[#777777]">
+                CONTROL PLANE
+              </span>
+              <span className="text-[10px] text-[#55585D]">/</span>
+              <span className="text-[10px] font-mono text-[#00F0FF] uppercase tracking-wider">
+                AGENT PURCHASE INTENT
+              </span>
+            </div>
+            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#EBEBEB]">
+              Autonomous Procurement Dispatcher
+            </h2>
+            <p className="mt-1 max-w-2xl text-xs text-[#9EA1A5] leading-relaxed">
+              Dispatch agent purchasing intents through quote gathering, ML supplier recommendation, deterministic policy verification, and budget escrow.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void refreshAgents()}
+              disabled={refreshingAgents}
+              className="inline-flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#202020] px-3.5 py-2 text-xs font-medium text-[#EBEBEB] transition-colors hover:border-[#00F0FF]/40 hover:text-[#00F0FF] disabled:opacity-50 shadow-md"
+            >
+              <IconRefresh className={`h-3.5 w-3.5 ${refreshingAgents ? 'animate-spin text-[#00F0FF]' : ''}`} />
+              <span>{refreshingAgents ? 'Syncing…' : 'Refresh Agents'}</span>
+            </button>
+          </div>
         </div>
       </div>
 

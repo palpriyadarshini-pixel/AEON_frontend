@@ -470,7 +470,16 @@ export function TransactionLedger({ mode }: { mode: LedgerMode }) {
       )}
 
       {/* Filter and Table Container */}
-      <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#181818] overflow-hidden">
+      <div className="relative rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#181818] overflow-hidden">
+        {/* Subtle Telemetry Dot-Matrix Graphic Accent */}
+        <div
+          className="absolute right-0 top-0 w-72 h-36 opacity-10 pointer-events-none"
+          style={{
+            backgroundImage: "url('/assets/aeon/dot-matrix-chart.jpeg')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'top right',
+          }}
+        />
         {/* Controls Toolbar */}
         <div className="flex flex-col gap-4 border-b border-[rgba(255,255,255,0.06)] p-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-2">
