@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 480" width="2400" height="480" fill="none">
+  <defs>
+    <linearGradient id="stripBg" x1="0" y1="0" x2="2400" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#121212" />
+      <stop offset="35%" stop-color="#0E265F" stop-opacity="0.35" />
+      <stop offset="70%" stop-color="#1657AD" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#121212" />
+    </linearGradient>
+    <linearGradient id="filament1" x1="0" y1="240" x2="2400" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00F0FF" stop-opacity="0" />
+      <stop offset="20%" stop-color="#00F0FF" stop-opacity="0.6" />
+      <stop offset="50%" stop-color="#EBEBEB" stop-opacity="0.8" />
+      <stop offset="80%" stop-color="#1DB954" stop-opacity="0.7" />
+      <stop offset="100%" stop-color="#1DB954" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="gateGlow" x1="0" y1="0" x2="0" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1657AD" stop-opacity="0" />
+      <stop offset="50%" stop-color="#1657AD" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#1657AD" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+  
+  <rect width="2400" height="480" fill="url(#stripBg)" />
+  
+  <!-- Flowing Data Filaments -->
+  <path d="M0 240 C400 240, 600 210, 900 210 C1200 210, 1500 270, 1800 270 C2100 270, 2300 240, 2400 240" 
+        stroke="url(#filament1)" stroke-width="1.5" fill="none" opacity="0.85" />
+  <path d="M0 260 C350 260, 650 290, 950 290 C1250 290, 1450 220, 1750 220 C2050 220, 2250 250, 2400 250" 
+        stroke="rgba(0,240,255,0.4)" stroke-width="1" stroke-dasharray="8 12" fill="none" />
+  <path d="M0 220 C450 220, 750 170, 1100 170 C1400 170, 1650 250, 1950 250 C2150 250, 2300 230, 2400 230" 
+        stroke="rgba(235,235,235,0.3)" stroke-width="1" stroke-dasharray="4 8" fill="none" />
+        
+  <!-- Translucent Policy Verification Gates -->
+  <!-- Gate Alpha (x=700) -->
+  <rect x="696" y="80" width="8" height="320" rx="4" fill="url(#gateGlow)" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+  <line x1="700" y1="120" x2="700" y2="360" stroke="#00F0FF" stroke-width="1.5" stroke-dasharray="2 4" opacity="0.6" />
+  
+  <!-- Gate Beta: Deterministic Policy Engine (x=1200) -->
+  <rect x="1194" y="60" width="12" height="360" rx="6" fill="url(#gateGlow)" stroke="rgba(0,240,255,0.25)" stroke-width="1.5" />
+  <line x1="1200" y1="90" x2="1200" y2="390" stroke="#00F0FF" stroke-width="2" />
+  <circle cx="1200" cy="210" r="4" fill="#00F0FF" />
+  
+  <!-- Gate Gamma: Human Authorization / Settlement (x=1700) -->
+  <rect x="1696" y="80" width="8" height="320" rx="4" fill="url(#gateGlow)" stroke="rgba(29,185,84,0.3)" stroke-width="1" />
+  <line x1="1700" y1="120" x2="1700" y2="360" stroke="#1DB954" stroke-width="1.5" stroke-dasharray="2 4" opacity="0.8" />
+  
+  <!-- Inbound Electric Cyan Pre-Gate Sparks -->
+  <circle cx="420" cy="240" r="2.5" fill="#00F0FF" />
+  <circle cx="580" cy="225" r="2" fill="#00F0FF" />
+  <circle cx="820" cy="210" r="3" fill="#00F0FF" />
+  <circle cx="1040" cy="180" r="2.5" fill="#00F0FF" />
+  
+  <!-- Outbound Emerald Settled Nodes -->
+  <circle cx="1850" cy="265" r="3" fill="#1DB954" />
+  <circle cx="2050" cy="225" r="2.5" fill="#1DB954" />
+  <circle cx="2220" cy="235" r="2" fill="#1DB954" />
+</svg>

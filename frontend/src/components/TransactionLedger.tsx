@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import {
@@ -14,23 +13,38 @@ import {
   fetchAgents,
   fetchAuditEvents,
   fetchTransactions,
+  fetchTransactionDetail,
+  fetchTransactionTimeline,
+  fetchTransactionReceipt,
+  reconcilePendingPayments,
+  reconcilePayPalOrder,
   LedgerTransaction,
   LedgerSummary,
 } from '../services/api';
+import type {
+  TransactionTimelineResponse,
+  TransactionReceiptResponse,
+  ReconciliationResponse,
+  TimelineEventItem,
+} from '../types';
+import { StatusBadge } from './StatusBadge';
+import { Drawer } from './Drawer';
+import { EmptyState } from './EmptyState';
+import { IconCreditCard, IconHistory, IconRefresh, IconSearch, IconFilter, IconCheck } from './icons';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 type LedgerMode = 'transactions' | 'audit';
 
 const gridTheme = themeQuartz.withParams({
-  backgroundColor: '#1A222C',
-  foregroundColor: '#E5E7EB',
-  headerBackgroundColor: '#24303F',
-  headerTextColor: '#9CA3AF',
-  borderColor: '#2E3A47',
-  rowHoverColor: '#24303F',
-  oddRowBackgroundColor: '#1A222C',
-  fontSize: 13,
+  backgroundColor: '#181818',
+  foregroundColor: '#EBEBEB',
+  headerBackgroundColor: '#141414',
+  headerTextColor: '#9EA1A5',
+  borderColor: 'rgba(255, 255, 255, 0.08)',
+  rowHoverColor: '#202020',
+  oddRowBackgroundColor: '#181818',
+  fontSize: 12,
   spacing: 8,
 });
 
@@ -44,45 +58,6 @@ const money = (
         style: 'currency',
         currency,
       }).format(value);
-
-function StatusBadge({ value }: { value: string }) {
-  const status = value?.toUpperCase() ?? '';
-
-  const styles: Record<string, string> = {
-    SETTLED: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    COMPLETED: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    PENDING: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    FAILED: 'bg-red-500/10 text-red-400 border-red-500/20',
-    BLOCKED: 'bg-red-500/10 text-red-400 border-red-500/20',
-    REFUNDED: 'bg-slate-500/10 text-slate-300 border-slate-500/20',
-  };
-
-  return (
-    <span className={`inline-flex rounded-md border px-2 py-1 text-[11px] font-medium ${styles[status] ?? 'border-slate-600 bg-slate-700/30 text-slate-300'}`}>
-      {status || 'UNKNOWN'}
-    </span>
-  );
-}
-
-function Metric({
-  label,
-  value,
-  detail,
-}: {
-  label: string;
-  value: string | number;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-lg border border-slate-700/70 bg-[#1A222C] p-5">
-      <p className="text-xs font-medium text-slate-400">{label}</p>
-      <p className="mt-3 text-2xl font-semibold tracking-tight text-white">
-        {value}
-      </p>
-      <p className="mt-2 text-xs text-slate-500">{detail}</p>
-    </div>
-  );
-}
 
 export function TransactionLedger({ mode }: { mode: LedgerMode }) {
   const [transactions, setTransactions] = useState<LedgerTransaction[]>([]);
@@ -102,7 +77,12 @@ export function TransactionLedger({ mode }: { mode: LedgerMode }) {
   const [agentFilter, setAgentFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<LedgerTransaction | null>(null);
+  const [timeline, setTimeline] = useState<TransactionTimelineResponse | null>(null);
+  const [receipt, setReceipt] = useState<TransactionReceiptResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
+  const [reconciliationResult, setReconciliationResult] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   const refresh = useCallback(async () => {
@@ -127,9 +107,72 @@ export function TransactionLedger({ mode }: { mode: LedgerMode }) {
 
   useEffect(() => {
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 8000);
+    const timer = window.setInterval(() => void refresh(), 10000);
     return () => window.clearInterval(timer);
   }, [refresh]);
+
+  // Load detailed timeline and receipt when a transaction is selected
+  useEffect(() => {
+    if (!selected) {
+      setTimeline(null);
+      setReceipt(null);
+      return;
+    }
+
+    let active = true;
+    setDetailLoading(true);
+
+    Promise.all([
+      fetchTransactionTimeline(selected.id).catch(() => null),
+      fetchTransactionReceipt(selected.id).catch(() => null),
+    ]).then(([tData, rData]) => {
+      if (!active) return;
+      setTimeline(tData);
+      setReceipt(rData);
+      setDetailLoading(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [selected]);
+
+  const handleReconcileBatch = async () => {
+    setReconciling(true);
+    setReconciliationResult(null);
+    setError('');
+    try {
+      const res: ReconciliationResponse = await reconcilePendingPayments();
+      setReconciliationResult(
+        `Batch reconciliation complete: ${res.settled_count} settled, ${res.pending_count} pending, ${res.failed_count} failed.`
+      );
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Batch reconciliation failed');
+    } finally {
+      setReconciling(false);
+    }
+  };
+
+  const handleReconcileSingle = async (orderId: string) => {
+    setReconciling(true);
+    setError('');
+    try {
+      await reconcilePayPalOrder(orderId);
+      setReconciliationResult(`Payment attempt ${orderId} reconciled with PayPal authoritative ledger.`);
+      await refresh();
+      if (selected) {
+        const updated = await fetchTransactionDetail(selected.id).catch(() => null);
+        if (updated) {
+          setSelected((prev) => (prev ? { ...prev, status: updated.status } : null));
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Single reconciliation failed');
+    } finally {
+      setReconciling(false);
+    }
+  };
 
   const visibleTransactions = useMemo(
     () =>
@@ -194,43 +237,60 @@ export function TransactionLedger({ mode }: { mode: LedgerMode }) {
     () => [
       {
         field: 'created_at',
-        headerName: 'DATE',
-        minWidth: 175,
+        headerName: 'TIMESTAMP',
+        minWidth: 160,
         valueFormatter: (p) =>
-          p.value ? new Date(p.value).toLocaleString() : '—',
+          p.value ? new Date(p.value).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '—',
+        cellClass: 'tabular-nums font-mono text-[11px] text-[#9EA1A5]',
       },
-      { field: 'agent_name', headerName: 'AGENT', minWidth: 150 },
-      { field: 'vendor', headerName: 'SUPPLIER', minWidth: 145 },
+      {
+        field: 'agent_name',
+        headerName: 'AGENT',
+        minWidth: 140,
+        cellClass: 'font-mono text-xs text-[#EBEBEB]',
+      },
+      {
+        field: 'vendor',
+        headerName: 'SUPPLIER',
+        minWidth: 140,
+        cellClass: 'font-mono text-xs text-[#9EA1A5]',
+      },
       {
         field: 'item_description',
-        headerName: 'REQUESTED ITEM',
-        minWidth: 200,
+        headerName: 'PURCHASE SPECIFICATION',
+        minWidth: 220,
         flex: 1,
+        cellClass: 'text-xs text-[#EBEBEB]',
       },
       {
         field: 'amount',
         headerName: 'AMOUNT',
-        minWidth: 125,
+        minWidth: 120,
         valueFormatter: (p) => money(Number(p.value), p.data?.currency),
+        cellClass: 'tabular-nums font-mono text-xs font-bold text-[#EBEBEB]',
       },
       {
         field: 'status',
-        headerName: 'STATUS',
-        minWidth: 120,
+        headerName: 'SETTLEMENT',
+        minWidth: 130,
         cellRenderer: (p: ICellRendererParams<LedgerTransaction>) => (
           <StatusBadge value={String(p.value ?? '')} />
         ),
       },
       {
         field: 'policy_decision',
-        headerName: 'POLICY DECISION',
-        minWidth: 145,
+        headerName: 'POLICY VERDICT',
+        minWidth: 140,
+        cellRenderer: (p: ICellRendererParams<LedgerTransaction>) => (
+          <StatusBadge value={String(p.value ?? '')} />
+        ),
       },
       {
         field: 'remaining_budget',
-        headerName: 'REMAINING BUDGET',
-        minWidth: 155,
+        headerName: 'RESIDUAL BUDGET',
+        minWidth: 140,
         valueFormatter: (p) => money(p.value, p.data?.currency),
+        cellClass: 'tabular-nums font-mono text-xs text-[#1DB954]',
       },
     ],
     [],
@@ -241,22 +301,52 @@ export function TransactionLedger({ mode }: { mode: LedgerMode }) {
       {
         field: 'timestamp',
         headerName: 'TIMESTAMP',
-        minWidth: 180,
+        minWidth: 160,
         valueFormatter: (p) =>
-          p.value ? new Date(p.value).toLocaleString() : '—',
+          p.value ? new Date(p.value).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '—',
+        cellClass: 'tabular-nums font-mono text-[11px] text-[#9EA1A5]',
       },
-      { field: 'action', headerName: 'ACTION', minWidth: 190 },
-      { field: 'actor_type', headerName: 'ACTOR TYPE', minWidth: 125 },
-      { field: 'actor_id', headerName: 'ACTOR ID', minWidth: 180 },
-      { field: 'entity_type', headerName: 'ENTITY TYPE', minWidth: 140 },
-      { field: 'entity_id', headerName: 'ENTITY ID', minWidth: 210 },
+      {
+        field: 'action',
+        headerName: 'ACTION VERDICT',
+        minWidth: 180,
+        cellRenderer: (p: ICellRendererParams<AuditEvent>) => (
+          <StatusBadge value={String(p.value ?? '')} />
+        ),
+      },
+      {
+        field: 'actor_type',
+        headerName: 'ACTOR TYPE',
+        minWidth: 120,
+        cellClass: 'font-mono text-xs text-[#00F0FF]',
+      },
+      {
+        field: 'actor_id',
+        headerName: 'ACTOR ID',
+        minWidth: 160,
+        cellClass: 'font-mono text-[11px] text-[#9EA1A5]',
+        valueFormatter: (p) => p.value ? String(p.value).slice(0, 12) + '…' : 'SYSTEM',
+      },
+      {
+        field: 'entity_type',
+        headerName: 'ENTITY',
+        minWidth: 130,
+        cellClass: 'font-mono text-xs text-[#777777]',
+      },
+      {
+        field: 'entity_id',
+        headerName: 'ENTITY ID',
+        minWidth: 160,
+        cellClass: 'font-mono text-[11px] text-[#EBEBEB]',
+        valueFormatter: (p) => p.value ? String(p.value).slice(0, 12) + '…' : '—',
+      },
       {
         field: 'metadata_json',
         headerName: 'EVENT METADATA',
-        minWidth: 280,
+        minWidth: 260,
         flex: 1,
-        valueFormatter: (p) =>
-          p.value ? JSON.stringify(p.value) : '—',
+        cellClass: 'font-mono text-[11px] text-[#777777]',
+        valueFormatter: (p) => (p.value ? JSON.stringify(p.value) : '—'),
       },
     ],
     [],
@@ -264,106 +354,155 @@ export function TransactionLedger({ mode }: { mode: LedgerMode }) {
 
   return (
     <section className="space-y-6">
-      {/* Page heading */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      {/* Page Heading */}
+      <div className="flex flex-col justify-between gap-4 border-b border-[rgba(255,255,255,0.06)] pb-5 sm:flex-row sm:items-center">
         <div>
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">
-            AEON / {mode === 'transactions' ? 'FINANCE' : 'GOVERNANCE'}
-          </p>
-          <h2 className="text-2xl font-semibold tracking-tight text-white">
-            {mode === 'transactions'
-              ? 'Transaction Ledger'
-              : 'Audit Trail'}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-[#777777]">
+              {mode === 'transactions' ? 'FINANCIAL OPERATIONS' : 'AUDIT REPOSITORY'}
+            </span>
+            <span className="text-[10px] text-[#55585D]">/</span>
+            <span className="text-[10px] font-mono text-[#00F0FF] uppercase tracking-wider">
+              {mode === 'transactions' ? 'IMMUTABLE LEDGER' : 'APPEND-ONLY TRAIL'}
+            </span>
+          </div>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#EBEBEB]">
+            {mode === 'transactions' ? 'Financial Transaction Ledger' : 'Cryptographic Audit Trail'}
           </h2>
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="mt-1 text-xs text-[#9EA1A5]">
             {mode === 'transactions'
-              ? 'Review financial transactions, payment status and agent budget positions.'
-              : 'Review recorded system events and procurement activity.'}
+              ? 'Authoritative records of agent purchases, PayPal Orders v2 captures, escrow states, and verified settlements.'
+              : 'Tamper-resistant event ledger capturing all governance checks, policy verdicts, and operator actions.'}
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => void refresh()}
-          disabled={loading}
-          className="rounded-md border border-slate-700 bg-[#1A222C] px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-[#24303F] disabled:opacity-50"
-        >
-          {loading ? 'Refreshing...' : 'Refresh data'}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {mode === 'transactions' && (
+            <button
+              type="button"
+              onClick={handleReconcileBatch}
+              disabled={reconciling || loading}
+              className="inline-flex items-center gap-2 rounded-lg border border-[rgba(0,240,255,0.3)] bg-[rgba(0,240,255,0.08)] px-3.5 py-2 text-xs font-mono font-medium text-[#00F0FF] transition-colors hover:bg-[rgba(0,240,255,0.16)] disabled:opacity-50"
+            >
+              <IconRefresh className={`h-3.5 w-3.5 ${reconciling ? 'animate-spin' : ''}`} />
+              <span>{reconciling ? 'Reconciling…' : 'Reconcile In-Flight Payments'}</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#202020] px-3.5 py-2 text-xs font-medium text-[#EBEBEB] transition-colors hover:border-[#00F0FF]/40 hover:text-[#00F0FF] disabled:opacity-50"
+          >
+            <IconRefresh className={`h-3.5 w-3.5 ${loading ? 'animate-spin text-[#00F0FF]' : ''}`} />
+            <span>{loading ? 'Syncing…' : 'Refresh'}</span>
+          </button>
+        </div>
       </div>
 
       {error && (
-        <div
-          role="alert"
-          className="rounded-lg border border-red-800/70 bg-red-950/30 p-4 text-sm text-red-300"
-        >
+        <div role="alert" className="rounded-xl border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.08)] p-4 text-xs text-[#EF4444]">
+          <span className="font-mono font-bold mr-2">LEDGER ERROR:</span>
           {error}
         </div>
       )}
 
-      {/* Transaction summary */}
-      {mode === 'transactions' && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <Metric
-            label="Total transactions"
-            value={summary.total}
-            detail="Recorded ledger entries"
-          />
-          <Metric
-            label="Pending"
-            value={summary.pending}
-            detail="Awaiting completion"
-          />
-          <Metric
-            label="Blocked"
-            value={summary.blocked}
-            detail="Denied by policy"
-          />
-          <Metric
-            label="Settled"
-            value={summary.completed}
-            detail="Completed payments"
-          />
-          <Metric
-            label="Net captured"
-            value={money(summary.completed_amount)}
-            detail={`${summary.failed} failed / cancelled`}
-          />
+      {reconciliationResult && (
+        <div className="rounded-xl border border-[rgba(29,185,84,0.3)] bg-[rgba(29,185,84,0.08)] p-4 text-xs font-mono text-[#1DB954]">
+          ✓ {reconciliationResult}
         </div>
       )}
 
-      
-      {/* Ledger table */}
-      <div className="overflow-hidden rounded-xl border border-slate-700 bg-[#1A222C]">
-        <div className="flex flex-col gap-4 border-b border-slate-700 p-5 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <h3 className="text-base font-semibold text-white">
-              {mode === 'transactions' ? 'Financial records' : 'Recorded events'}
-            </h3>
-            <p className="mt-1 text-xs text-slate-400">
-              {mode === 'transactions'
-                ? 'Transaction records retrieved from the backend ledger.'
-                : 'Append-only event records retrieved from the audit API.'}
+      {/* 5-Metric Strip for Transactions */}
+      {mode === 'transactions' && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+          <div className="rounded-xl border border-[rgba(255,255,255,0.08)] bg-[#181818] p-4">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#777777]">
+              Total Transactions
+            </span>
+            <p className="mt-1.5 tabular-nums font-mono text-2xl font-bold text-[#EBEBEB]">
+              {summary.total}
             </p>
+            <p className="mt-1 text-[10px] text-[#55585D]">Recorded entries</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex">
-            <input
-              aria-label="Search ledger"
-              placeholder="Search records..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-md border border-slate-700 bg-[#111827] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-500 focus:border-indigo-500 lg:w-64"
-            />
+          <div className="rounded-xl border border-[rgba(245,185,66,0.2)] bg-[#181818] p-4">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#F5B942]">
+              Pending In-Flight
+            </span>
+            <p className="mt-1.5 tabular-nums font-mono text-2xl font-bold text-[#F5B942]">
+              {summary.pending}
+            </p>
+            <p className="mt-1 text-[10px] text-[#55585D]">Awaiting capture</p>
+          </div>
 
+          <div className="rounded-xl border border-[rgba(239,68,68,0.2)] bg-[#181818] p-4">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#EF4444]">
+              Blocked By Policy
+            </span>
+            <p className="mt-1.5 tabular-nums font-mono text-2xl font-bold text-[#EF4444]">
+              {summary.blocked}
+            </p>
+            <p className="mt-1 text-[10px] text-[#55585D]">Hard stopped</p>
+          </div>
+
+          <div className="rounded-xl border border-[rgba(29,185,84,0.2)] bg-[#181818] p-4">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#1DB954]">
+              Settled &amp; Reconciled
+            </span>
+            <p className="mt-1.5 tabular-nums font-mono text-2xl font-bold text-[#1DB954]">
+              {summary.completed}
+            </p>
+            <p className="mt-1 text-[10px] text-[#55585D]">Confirmed capture</p>
+          </div>
+
+          <div className="col-span-2 sm:col-span-1 rounded-xl border border-[rgba(22,87,173,0.3)] bg-[#181818] p-4">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#619CBE]">
+              Net Captured Capital
+            </span>
+            <p className="mt-1.5 tabular-nums font-mono text-2xl font-bold text-[#EBEBEB]">
+              {money(summary.completed_amount)}
+            </p>
+            <p className="mt-1 text-[10px] text-[#55585D]">{summary.failed} cancelled/failed</p>
+          </div>
+        </div>
+      )}
+
+      {/* Filter and Table Container */}
+      <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#181818] overflow-hidden">
+        {/* Controls Toolbar */}
+        <div className="flex flex-col gap-4 border-b border-[rgba(255,255,255,0.06)] p-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono font-semibold uppercase tracking-wider text-[#EBEBEB]">
+              {mode === 'transactions' ? 'Authoritative Ledger Records' : 'Immutable Event Records'}
+            </span>
+            <span className="rounded bg-[#202020] px-2 py-0.5 text-[10px] font-mono text-[#777777]">
+              {mode === 'transactions' ? visibleTransactions.length : displayedEvents.length} MATCHES
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {/* Search Input */}
+            <div className="relative">
+              <input
+                aria-label="Search records"
+                placeholder="Filter by ID, vendor, item…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 w-full rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#121212] px-3 font-mono text-xs text-[#EBEBEB] outline-none placeholder:text-[#55585D] focus:border-[#00F0FF]/50"
+              />
+            </div>
+
+            {/* Status Filter */}
             {mode === 'transactions' && (
               <select
                 aria-label="Filter by status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full rounded-md border border-slate-700 bg-[#111827] px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-500"
+                className="h-9 w-full rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#121212] px-3 font-mono text-xs text-[#EBEBEB] outline-none focus:border-[#00F0FF]/50"
               >
-                <option value="ALL">All statuses</option>
+                <option value="ALL">All Statuses</option>
                 {['SETTLED', 'PENDING', 'FAILED', 'REFUNDED'].map((status) => (
                   <option key={status} value={status}>
                     {status}
@@ -372,13 +511,14 @@ export function TransactionLedger({ mode }: { mode: LedgerMode }) {
               </select>
             )}
 
+            {/* Agent Filter */}
             <select
               aria-label="Filter by agent"
               value={agentFilter}
               onChange={(e) => setAgentFilter(e.target.value)}
-              className="w-full rounded-md border border-slate-700 bg-[#111827] px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-500"
+              className="h-9 w-full rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#121212] px-3 font-mono text-xs text-[#EBEBEB] outline-none focus:border-[#00F0FF]/50"
             >
-              <option value="ALL">All agents</option>
+              <option value="ALL">All Agents</option>
               {agents.map((agent) => (
                 <option key={agent.id} value={agent.id}>
                   {agent.name}
@@ -388,11 +528,12 @@ export function TransactionLedger({ mode }: { mode: LedgerMode }) {
           </div>
         </div>
 
-        <div className="w-full overflow-x-auto p-3">
+        {/* AG-Grid Table View */}
+        <div className="w-full overflow-x-auto p-4">
           <div
             className="ag-theme-quartz-dark w-full"
             style={{
-              height: mode === 'transactions' ? 240 : 420,
+              height: mode === 'transactions' ? 360 : 480,
               width: '100%',
               minWidth: 0,
             }}
@@ -414,7 +555,7 @@ export function TransactionLedger({ mode }: { mode: LedgerMode }) {
                 animateRows
                 onRowClicked={(event) => setSelected(event.data ?? null)}
                 getRowId={(params) => params.data.id}
-                overlayNoRowsTemplate="No transactions match the selected filters."
+                overlayNoRowsTemplate="No transactions found matching criteria."
               />
             ) : (
               <AgGridReact<AuditEvent>
@@ -432,189 +573,164 @@ export function TransactionLedger({ mode }: { mode: LedgerMode }) {
                 paginationPageSize={12}
                 animateRows
                 getRowId={(params) => params.data.id}
-                overlayNoRowsTemplate="No audit events match the selected filters."
+                overlayNoRowsTemplate="No audit events found matching criteria."
               />
             )}
           </div>
         </div>
 
-        <div className="border-t border-slate-700 px-5 py-3 text-xs text-slate-400">
-          {mode === 'transactions'
-            ? `Showing ${visibleTransactions.length} of ${summary.total} transactions`
-            : `Showing ${displayedEvents.length} audit events`}
-          <span className="ml-2 text-slate-500">
-            · Automatically refreshes every 8 seconds
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-[rgba(255,255,255,0.06)] px-5 py-3 text-xs font-mono text-[#777777]">
+          <span>
+            {mode === 'transactions'
+              ? `Showing ${visibleTransactions.length} of ${summary.total} entries`
+              : `Showing ${displayedEvents.length} events`}
           </span>
+          <span>Click any row for comprehensive ledger &amp; PayPal verification</span>
         </div>
       </div>
 
-      
-      {/* Agent budget position */}
-      {mode === 'transactions' && (
-        <section className="rounded-xl border border-slate-700 bg-[#1A222C] p-5">
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-semibold text-white">
-                Agent budget position
-              </h3>
-              <p className="mt-1 text-xs text-slate-400">
-                Current balances from server-side budget records.
-              </p>
-            </div>
-            <span className="text-xs text-slate-400">
-              {agents.length} registered agents
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {agents.map((agent) => {
-              const used = Math.max(
-                0,
-                agent.budget - agent.remaining_budget
-              );
-
-              const pct =
-                agent.budget > 0
-                  ? Math.min(100, (used / agent.budget) * 100)
-                  : 0;
-
-              const duplicateName =
-                agents.filter((item) => item.name === agent.name).length > 1;
-
-              return (
-                <article
-                  key={agent.id}
-                  className="rounded-lg border border-slate-700 bg-[#111827] p-4 transition-colors hover:border-slate-500"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h4 className="truncate text-sm font-semibold text-white">
-                        {agent.name}
-                      </h4>
-
-                      {duplicateName && (
-                        <p
-                          className="mt-1 font-mono text-[10px] text-slate-500"
-                          title={agent.id}
-                        >
-                          ID · {agent.id.slice(-8)}
-                        </p>
-                      )}
-                    </div>
-
-                    <span className="shrink-0 text-sm font-semibold tabular-nums text-emerald-400">
-                      {money(agent.remaining_budget, agent.currency)}
-                    </span>
-                  </div>
-
-                  <p className="mt-2 text-xs text-slate-400">
-                    Available balance
-                  </p>
-
-                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-700">
-                    <div
-                      className="h-full rounded-full bg-indigo-500 transition-all"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-700 pt-3">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500">
-                        Allocated
-                      </p>
-                      <p className="mt-1 text-xs font-medium text-slate-200">
-                        {money(agent.budget, agent.currency)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500">
-                        Used / reserved
-                      </p>
-                      <p className="mt-1 text-xs font-medium text-slate-200">
-                        {money(used, agent.currency)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-[10px] text-slate-500">
-                      Budget utilization
-                    </span>
-                    <span className="text-xs font-medium text-slate-300">
-                      {pct.toFixed(1)}%
-                    </span>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-
-      {/* Selected transaction details */}
-      {selected && mode === 'transactions' && (
-        <section className="rounded-lg border border-slate-700/70 bg-[#1A222C] p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-700/70 pb-4">
-            <div>
-              <h3 className="text-base font-semibold text-white">
-                Transaction details
-              </h3>
-              <p className="mt-1 break-all font-mono text-xs text-slate-500">
-                {selected.id}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSelected(null)}
-              className="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-400 transition hover:bg-slate-800 hover:text-white"
+      {/* SLIDE-OUT DETAIL DRAWER FOR SELECTED TRANSACTION */}
+      <Drawer
+        isOpen={Boolean(selected && mode === 'transactions')}
+        onClose={() => setSelected(null)}
+        title="Transaction Ledger Inspection"
+        subtitle={`Tx ID: ${selected?.id || ''}`}
+        badge={selected ? <StatusBadge value={selected.status} /> : undefined}
+      >
+        {selected && (
+          <div className="space-y-6">
+            {/* Core Verification Banner */}
+            <div
+              className={`rounded-xl border p-4 ${
+                selected.status === 'SETTLED'
+                  ? 'border-[rgba(29,185,84,0.3)] bg-[rgba(29,185,84,0.06)]'
+                  : selected.status === 'PENDING'
+                    ? 'border-[rgba(245,185,66,0.3)] bg-[rgba(245,185,66,0.06)]'
+                    : 'border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.06)]'
+              }`}
             >
-              Close details
-            </button>
-          </div>
-
-          <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <p className="text-xs text-slate-500">Purchase request</p>
-              <p className="mt-1 break-all font-mono text-sm text-slate-200">
-                {selected.purchase_request_id}
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-[#9EA1A5]">
+                  Authoritative Verification
+                </span>
+                <span
+                  className={`text-xs font-mono font-bold ${
+                    selected.status === 'SETTLED'
+                      ? 'text-[#1DB954]'
+                      : selected.status === 'PENDING'
+                        ? 'text-[#F5B942]'
+                        : 'text-[#EF4444]'
+                  }`}
+                >
+                  {selected.status === 'SETTLED'
+                    ? 'VERIFIED SETTLEMENT'
+                    : selected.status === 'PENDING'
+                      ? 'CAPTURE PENDING REVIEW'
+                      : 'FAILED / CANCELLED'}
+                </span>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-[#EBEBEB]">
+                {selected.status === 'SETTLED'
+                  ? 'The backend confirms a completed PayPal capture with matching amount and settled ledger entry.'
+                  : selected.status === 'PENDING'
+                    ? 'Buyer approval does not establish settlement. Reserved funds remain in escrow pending capture confirmation.'
+                    : 'Transaction did not complete. Any reserved funds have been released by the backend.'}
               </p>
             </div>
-            <div>
-              <p className="text-xs text-slate-500">Ledger status</p>
-              <div className="mt-2">
-                <StatusBadge value={selected.status} />
+
+            {/* Financial Parameters */}
+            <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+              <div className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#141414] p-3.5">
+                <span className="text-[10px] uppercase text-[#777777]">Captured Amount</span>
+                <p className="mt-1 text-base font-bold tabular-nums text-[#EBEBEB]">
+                  {money(selected.amount, selected.currency)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#141414] p-3.5">
+                <span className="text-[10px] uppercase text-[#777777]">Policy Result</span>
+                <p className="mt-1 text-sm font-bold text-[#00F0FF]">
+                  {selected.policy_decision}
+                </p>
               </div>
             </div>
-            <div>
-              <p className="text-xs text-slate-500">Supplier</p>
-              <p className="mt-1 text-sm text-slate-200">
-                {selected.vendor}
-              </p>
+
+            {/* PayPal Orchestration Details */}
+            <div className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#141414] p-4 space-y-3">
+              <h4 className="text-[11px] font-mono uppercase tracking-wider text-[#777777]">
+                PayPal Orders v2 Orchestration
+              </h4>
+              <div className="space-y-2 text-xs font-mono">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#9EA1A5]">PayPal Order ID:</span>
+                  <span className="text-[#EBEBEB] tabular-nums">{selected.paypal_order_id || 'Not generated'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#9EA1A5]">Capture ID:</span>
+                  <span className="text-[#EBEBEB] tabular-nums">{selected.paypal_capture_id || 'Not issued'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#9EA1A5]">Agent Name:</span>
+                  <span className="text-[#00F0FF]">{selected.agent_name}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#9EA1A5]">Supplier:</span>
+                  <span className="text-[#EBEBEB]">{selected.vendor}</span>
+                </div>
+              </div>
+
+              {selected.paypal_order_id && selected.status !== 'SETTLED' && (
+                <button
+                  type="button"
+                  onClick={() => handleReconcileSingle(selected.paypal_order_id!)}
+                  disabled={reconciling}
+                  className="mt-3 w-full rounded-lg border border-[rgba(0,240,255,0.3)] bg-[rgba(0,240,255,0.08)] py-2 text-xs font-mono font-medium text-[#00F0FF] hover:bg-[rgba(0,240,255,0.16)] disabled:opacity-50"
+                >
+                  {reconciling ? 'Reconciling with PayPal…' : 'Reconcile this Order with PayPal'}
+                </button>
+              )}
             </div>
-            <div>
-              <p className="text-xs text-slate-500">Amount</p>
-              <p className="mt-1 text-sm font-semibold text-white">
-                {money(selected.amount, selected.currency)}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500">PayPal order ID</p>
-              <p className="mt-1 break-all font-mono text-xs text-slate-300">
-                {selected.paypal_order_id ?? 'Not available'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500">Capture / provider ID</p>
-              <p className="mt-1 break-all font-mono text-xs text-slate-300">
-                {selected.paypal_capture_id ?? 'Not available'}
-              </p>
-            </div>
+
+            {/* Timeline Events if present */}
+            {timeline && timeline.events && timeline.events.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-[#EBEBEB]">
+                  Settlement Event Timeline
+                </h4>
+                <div className="space-y-2 border-l border-[rgba(255,255,255,0.08)] pl-4">
+                  {timeline.events.map((ev: TimelineEventItem) => (
+                    <div key={ev.id} className="relative pb-3 text-xs font-mono">
+                      <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-[#00F0FF]" />
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[#EBEBEB]">{ev.action}</span>
+                        <span className="text-[10px] text-[#777777]">
+                          {new Date(ev.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[#9EA1A5]">{ev.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Receipt Summary */}
+            {receipt && (
+              <div className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#141414] p-4 space-y-2 text-xs font-mono">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#777777] uppercase text-[10px]">Authoritative Receipt</span>
+                  <span className="text-[#00F0FF]">#{receipt.receipt_number}</span>
+                </div>
+                <div className="text-[11px] text-[#9EA1A5] space-y-1">
+                  <p>Organization: {receipt.organization_name}</p>
+                  <p>Item: {receipt.item_description}</p>
+                  <p>Issued: {new Date(receipt.issued_at).toLocaleString()}</p>
+                </div>
+              </div>
+            )}
           </div>
-        </section>
-      )}
+        )}
+      </Drawer>
     </section>
   );
 }

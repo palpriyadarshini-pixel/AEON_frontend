@@ -1,6 +1,8 @@
-
 import { useEffect, useState } from 'react';
 import { fetchPolicies } from '../services/api';
+import { StatusBadge } from './StatusBadge';
+import { EmptyState } from './EmptyState';
+import { IconScale, IconRefresh } from './icons';
 
 interface PolicyVersion {
   version: number;
@@ -27,81 +29,105 @@ export function PoliciesDirectory() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let alive = true;
-
+  const load = () => {
+    setLoading(true);
     fetchPolicies()
       .then((data) => {
-        if (alive) {
-          setPolicies(data as PolicyRecord[]);
-          setError('');
-        }
+        setPolicies(data as PolicyRecord[]);
+        setError('');
       })
       .catch((e) => {
-        if (alive) {
-          setError(
-            e instanceof Error
-              ? e.message
-              : 'Unable to load policies',
-          );
-        }
+        setError(
+          e instanceof Error
+            ? e.message
+            : 'Unable to load policies',
+        );
       })
       .finally(() => {
-        if (alive) setLoading(false);
+        setLoading(false);
       });
+  };
 
-    return () => {
-      alive = false;
-    };
+  useEffect(() => {
+    load();
   }, []);
 
   return (
-    <section className="space-y-6 pt-3">
-
+    <section className="space-y-6">
       {/* PAGE HEADER */}
-      <div>
-        <p className="mb-1 text-xs font-medium uppercase tracking-wider text-slate-500">
-          AEON / Governance
-        </p>
+      <div className="flex flex-col justify-between gap-4 border-b border-[rgba(255,255,255,0.06)] pb-5 sm:flex-row sm:items-center">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-[0.16em] text-[#777777]">
+              GOVERNANCE
+            </span>
+            <span className="text-[10px] text-[#55585D]">/</span>
+            <span className="text-[10px] font-mono text-[#00F0FF] uppercase tracking-wider">
+              DETERMINISTIC RULE MATRIX
+            </span>
+          </div>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#EBEBEB]">
+            Procurement Policy Matrix
+          </h2>
+          <p className="mt-1 text-xs text-[#9EA1A5]">
+            Deterministic spend caps, rolling daily ceilings, supplier allow-lists, and human authorization thresholds enforced before PayPal order generation.
+          </p>
+        </div>
 
-        <h2 className="text-2xl font-semibold tracking-tight text-white">
-          Procurement Policies
-        </h2>
-
-        <p className="mt-1 text-sm text-slate-400">
-          Review spending limits, approval thresholds and supplier restrictions.
-        </p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[#202020] px-3.5 py-2 text-xs font-medium text-[#EBEBEB] transition-colors hover:border-[#00F0FF]/40 hover:text-[#00F0FF] disabled:opacity-50"
+          >
+            <IconRefresh className={`h-3.5 w-3.5 ${loading ? 'animate-spin text-[#00F0FF]' : ''}`} />
+            <span>{loading ? 'Refreshing…' : 'Refresh Policies'}</span>
+          </button>
+        </div>
       </div>
 
       {/* ERROR */}
       {error && (
         <div
           role="alert"
-          className="rounded-md border border-red-800 bg-red-950/30 p-3 text-sm text-red-300"
+          className="rounded-xl border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.08)] p-4 text-xs text-[#EF4444]"
         >
+          <span className="font-mono font-bold mr-2">POLICY ENGINE ERROR:</span>
           {error}
         </div>
       )}
 
+      {/* INVARIANT INFO STRIP */}
+      <div className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#141414] p-4 text-xs font-mono text-[#9EA1A5] flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-[#1DB954]" />
+          <span>APPROVE: Below threshold &amp; allow-listed</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-[#F5B942]" />
+          <span>FLAG: Over approval threshold or 0.00 review</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-[#EF4444]" />
+          <span>BLOCK: Limit exceeded or supplier disallowed (Non-overridable)</span>
+        </div>
+      </div>
+
       {/* LOADING */}
       {loading ? (
-        <div className="rounded-lg border border-slate-700/60 bg-[#1A222C] p-8 text-center text-sm text-slate-400">
-          Loading procurement policies...
+        <div className="py-16 text-center text-xs text-[#777777] font-mono">
+          Loading procurement policy rules…
         </div>
       ) : policies.length === 0 ? (
-        <div className="rounded-lg border border-slate-700/60 bg-[#1A222C] p-10 text-center">
-          <h3 className="text-sm font-semibold text-white">
-            No policies available
-          </h3>
-          <p className="mt-2 text-xs text-slate-500">
-            No procurement policies are available for this organization.
-          </p>
-        </div>
+        <EmptyState
+          title="No Policies Configured"
+          description="No deterministic procurement policies are registered for this organization."
+          illustration="approvals"
+        />
       ) : (
-
         /* POLICY GRID */
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           {policies.map((policy) => {
             const version = policy.versions
               ?.slice()
@@ -110,142 +136,118 @@ export function PoliciesDirectory() {
             return (
               <article
                 key={policy.id}
-                className="rounded-lg border border-slate-700/60 bg-[#1A222C] p-5 transition-colors hover:border-slate-600"
+                className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#181818] p-6 transition-all hover:border-[rgba(255,255,255,0.14)]"
               >
-
                 {/* POLICY HEADER */}
-                <div className="flex items-start justify-between gap-4 border-b border-slate-700/50 pb-4">
-
+                <div className="flex items-start justify-between gap-4 border-b border-[rgba(255,255,255,0.06)] pb-4">
                   <div className="min-w-0">
-                    <h3 className="text-base font-semibold text-white">
-                      {policy.name}
-                    </h3>
-
-                    <p className="mt-2 text-sm leading-5 text-slate-400">
-                      {policy.description || 'No description provided.'}
+                    <div className="flex items-center gap-2">
+                      <IconScale className="h-4 w-4 text-[#00F0FF]" />
+                      <h3 className="text-base font-semibold tracking-tight text-[#EBEBEB]">
+                        {policy.name}
+                      </h3>
+                    </div>
+                    <p className="mt-1.5 text-xs leading-relaxed text-[#9EA1A5]">
+                      {policy.description || 'Global deterministic policy governing agent procurement.'}
                     </p>
                   </div>
 
-                  <span
-                    className={`shrink-0 rounded border px-2 py-1 text-[10px] font-semibold ${
-                      policy.is_active
-                        ? 'border-emerald-700/50 bg-emerald-950/30 text-emerald-400'
-                        : 'border-slate-700 bg-slate-800 text-slate-400'
-                    }`}
-                  >
-                    {policy.is_active ? 'ACTIVE' : 'INACTIVE'}
-                  </span>
-
+                  <StatusBadge value={policy.is_active ? 'ACTIVE' : 'INACTIVE'} />
                 </div>
 
                 {/* VERSION */}
                 {version ? (
-                  <>
-                    <div className="mt-4 flex items-center justify-between">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                        Policy configuration
-                      </p>
-
-                      <span className="rounded bg-slate-800 px-2 py-1 font-mono text-[10px] text-slate-300">
-                        Version {version.version}
+                  <div className="mt-5 space-y-4">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-[#777777] uppercase text-[11px]">
+                        Active Version Constraints
+                      </span>
+                      <span className="rounded border border-[rgba(0,240,255,0.3)] bg-[rgba(0,240,255,0.08)] px-2 py-0.5 text-[10px] text-[#00F0FF]">
+                        v{version.version}.0
                       </span>
                     </div>
 
                     {/* POLICY LIMITS */}
-                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-
-                      <div className="rounded-md border border-slate-700/50 bg-[#0B1220] p-4">
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                          Per transaction
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#141414] p-3.5">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-[#777777]">
+                          Per-Tx Limit
                         </p>
-
-                        <p className="mt-2 font-mono text-lg font-semibold text-white">
+                        <p className="mt-1.5 font-mono text-base font-bold tabular-nums text-[#EBEBEB]">
                           {money(version.max_amount_per_transaction)}
                         </p>
                       </div>
 
-                      <div className="rounded-md border border-slate-700/50 bg-[#0B1220] p-4">
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                          Daily maximum
+                      <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#141414] p-3.5">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-[#777777]">
+                          Daily Rolling Cap
                         </p>
-
-                        <p className="mt-2 font-mono text-lg font-semibold text-white">
+                        <p className="mt-1.5 font-mono text-base font-bold tabular-nums text-[#EBEBEB]">
                           {money(version.max_amount_per_day)}
                         </p>
                       </div>
 
-                      <div className="rounded-md border border-slate-700/50 bg-[#0B1220] p-4">
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                          Approval threshold
+                      <div className="rounded-xl border border-[rgba(245,185,66,0.2)] bg-[#141414] p-3.5">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-[#F5B942]">
+                          Approval Threshold
                         </p>
-
-                        <p className="mt-2 font-mono text-lg font-semibold text-amber-300">
+                        <p className="mt-1.5 font-mono text-base font-bold tabular-nums text-[#F5B942]">
                           {money(version.approval_threshold_amount)}
                         </p>
                       </div>
-
-                      <div className="rounded-md border border-slate-700/50 bg-[#0B1220] p-4">
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                          Currency
-                        </p>
-
-                        <p className="mt-2 text-sm font-medium text-white">
-                          {version.allowed_currencies?.join(', ') || 'Not specified'}
-                        </p>
-                      </div>
-
                     </div>
 
                     {/* ALLOWED SUPPLIERS */}
-                    <div className="mt-5 border-t border-slate-700/50 pt-4">
+                    <div className="rounded-xl border border-[rgba(255,255,255,0.05)] bg-[#141414] p-4 space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-mono">
+                        <span className="uppercase text-[#777777]">Supplier Allow-list</span>
+                        <span className="text-[#9EA1A5]">
+                          {version.allowed_suppliers?.length ?? 0} Vendors Permitted
+                        </span>
+                      </div>
 
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                        Allowed suppliers
-                      </p>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-
+                      <div className="flex flex-wrap gap-1.5 pt-1">
                         {version.allowed_suppliers?.length ? (
                           version.allowed_suppliers.map((supplier) => (
                             <span
                               key={supplier}
-                              className="rounded border border-slate-700 bg-[#0B1220] px-3 py-1.5 text-xs text-slate-300"
+                              className="rounded-md border border-[rgba(255,255,255,0.08)] bg-[#1E1E1E] px-2.5 py-1 text-[11px] font-mono text-[#EBEBEB]"
                             >
-                              {supplier}
+                              ✓ {supplier}
                             </span>
                           ))
                         ) : (
-                          <span className="text-xs text-slate-500">
-                            No suppliers specified
+                          <span className="text-xs text-[#777777] font-mono">
+                            Unrestricted / None specified
                           </span>
                         )}
-
                       </div>
                     </div>
 
-                  </>
+                    {/* CURRENCIES */}
+                    <div className="flex items-center justify-between text-xs font-mono text-[#777777] px-1">
+                      <span>Currencies:</span>
+                      <span className="text-[#9EA1A5]">
+                        {version.allowed_currencies?.join(', ') || 'USD'}
+                      </span>
+                    </div>
+                  </div>
                 ) : (
-                  <div className="mt-5 rounded-md border border-slate-700/50 bg-[#0B1220] p-4">
-                    <p className="text-sm text-slate-400">
-                      No policy version is available.
-                    </p>
+                  <div className="mt-5 rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#141414] p-4 text-xs text-[#777777]">
+                    No version constraints assigned.
                   </div>
                 )}
 
                 {/* POLICY ID */}
-                <div className="mt-5 border-t border-slate-700/50 pt-3">
-                  <p className="break-all font-mono text-[10px] text-slate-500">
-                    Policy ID: {policy.id}
-                  </p>
+                <div className="mt-5 border-t border-[rgba(255,255,255,0.06)] pt-3 flex items-center justify-between text-[11px] font-mono text-[#777777]">
+                  <span className="truncate max-w-[280px]">ID: {policy.id}</span>
+                  <span className="text-[#00F0FF]">DETERMINISTIC INVARIANT</span>
                 </div>
-
               </article>
             );
           })}
-
         </div>
       )}
-
     </section>
   );
 }

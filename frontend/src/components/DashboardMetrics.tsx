@@ -6,7 +6,8 @@ import {
   Tooltip,
 } from 'recharts';
 import { useCallback, useEffect, useState } from 'react';
-import { fetchDashboardStats } from '../services/api';
+import { fetchDashboardStats, fetchSpendingSummary } from '../services/api';
+import type { DashboardStatsResponse, SpendingSummaryResponse } from '../types';
 import { MetricCard } from './MetricCard';
 import {
   IconBot,
@@ -16,12 +17,18 @@ import {
 } from './icons';
 
 export function DashboardMetrics() {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<DashboardStatsResponse | null>(null);
+  const [spending, setSpending] = useState<SpendingSummaryResponse | null>(null);
   const [error, setError] = useState('');
 
   const refresh = useCallback(async () => {
     try {
-      setStats(await fetchDashboardStats());
+      const [statsData, spendingData] = await Promise.all([
+        fetchDashboardStats(),
+        fetchSpendingSummary().catch(() => null),
+      ]);
+      setStats(statsData);
+      setSpending(spendingData);
       setError('');
     } catch (e) {
       setError(
@@ -34,7 +41,7 @@ export function DashboardMetrics() {
 
   useEffect(() => {
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 8000);
+    const timer = window.setInterval(() => void refresh(), 10000);
     return () => window.clearInterval(timer);
   }, [refresh]);
 
@@ -57,227 +64,280 @@ export function DashboardMetrics() {
       ? Math.min(100, Math.max(0, (value / allocated) * 100))
       : 0;
 
+  const chartData = [
+    { name: 'Settled Spent', value: spent, color: '#1657AD' },
+    { name: 'Active Reserved', value: reserved, color: '#F5B942' },
+    { name: 'Available Liquidity', value: available, color: '#1DB954' },
+  ].filter((item) => item.value > 0);
+
   return (
     <div className="space-y-6">
-      {/* Statistic cards */}
+      {/* 4-Column KPI Strip */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           title="Active Agents"
           value={stats?.active_agents ?? '—'}
-          subtitle={`${stats?.total_agents ?? 0} registered agents`}
-          badgeText="Database-backed"
-          badgeVariant="neutral"
+          subtitle={`${stats?.total_agents ?? 0} registered identity keys`}
+          badgeText="PostgreSQL Hash"
+          badgeVariant="cyan"
           icon={IconBot}
         />
 
         <MetricCard
-          title="Pending Approvals"
+          title="Approval Backlog"
           value={stats?.pending_approvals_count ?? '—'}
-          subtitle={`${stats?.total_purchases_count ?? 0} total purchases`}
-          badgeText="Approval queue"
-          badgeVariant="warning"
+          subtitle={`${stats?.total_purchases_count ?? 0} total purchase requests`}
+          badgeText={stats?.pending_approvals_count ? 'Action Required' : 'Queue Cleared'}
+          badgeVariant={stats?.pending_approvals_count ? 'amber' : 'emerald'}
           icon={IconFileText}
         />
 
         <MetricCard
           title="Budget Available"
           value={stats ? money(available) : '—'}
-          subtitle={`${money(reserved)} reserved`}
-          badgeText="Atomic budget"
-          badgeVariant="success"
+          subtitle={`${money(reserved)} reserved in escrow`}
+          badgeText="Row-Locked Reserve"
+          badgeVariant="emerald"
           icon={IconScale}
         />
 
         <MetricCard
-          title="Budget Spent"
+          title="Settled Expenditure"
           value={stats ? money(spent) : '—'}
-          subtitle={`${stats?.completed_purchases_count ?? 0} completed purchases`}
-          badgeText="Ledger-backed"
-          badgeVariant="cyan"
+          subtitle={`${stats?.completed_purchases_count ?? 0} completed orders`}
+          badgeText="PayPal Reconciled"
+          badgeVariant="neutral"
           icon={IconCreditCard}
         />
       </div>
 
-      {/* Financial overview */}
-      <section className="rounded-xl border border-[#2E3A47] bg-[#1A222C] p-5 sm:p-6">
-        <div className="mb-6">
-          <h2 className="text-base font-semibold text-white">
-            Financial Overview
-          </h2>
-          <p className="mt-1 text-xs text-slate-400">
-            Budget allocation and utilization across AEON
-          </p>
+      {/* Financial Capital Breakdown & Allocation Stage */}
+      <section className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#181818] p-6 sm:p-7">
+        <div className="flex flex-col justify-between gap-3 border-b border-[rgba(255,255,255,0.06)] pb-5 sm:flex-row sm:items-center">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-[#EBEBEB] font-mono">
+              Capital Exposure & Allocation Model
+            </h2>
+            <p className="mt-1 text-xs text-[#9EA1A5]">
+              Real-time budget reservation, authorized expenditure, and uncommitted liquidity
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded border border-[rgba(255,255,255,0.08)] bg-[#202020] px-2.5 py-1 text-[11px] font-mono text-[#9EA1A5]">
+              Currency: {currency}
+            </span>
+          </div>
         </div>
 
         {!stats ? (
-          <p className="text-sm text-slate-400">
-            Loading financial information...
-          </p>
+          <div className="py-12 text-center text-xs text-[#777777] font-mono">
+            Synchronizing financial state…
+          </div>
         ) : (
-          <>
-            <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="mt-6 space-y-7">
+            {/* 4 Financial Balances */}
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               {[
                 {
                   label: 'Total Allocated',
                   value: allocated,
-                  color: 'text-white',
+                  sub: 'Base organization capital',
+                  border: 'border-[rgba(255,255,255,0.08)]',
+                  color: 'text-[#EBEBEB]',
                 },
                 {
-                  label: 'Spent',
+                  label: 'Settled Spent',
                   value: spent,
-                  color: 'text-blue-400',
+                  sub: 'Captured PayPal payments',
+                  border: 'border-[rgba(22,87,173,0.3)]',
+                  color: 'text-[#619CBE]',
                 },
                 {
-                  label: 'Reserved',
+                  label: 'Active Reserved',
                   value: reserved,
-                  color: 'text-amber-400',
+                  sub: 'Pending approval & capture',
+                  border: 'border-[rgba(245,185,66,0.3)]',
+                  color: 'text-[#F5B942]',
                 },
                 {
-                  label: 'Available',
+                  label: 'Uncommitted Available',
                   value: available,
-                  color: 'text-emerald-400',
+                  sub: 'Immediately deployable',
+                  border: 'border-[rgba(29,185,84,0.3)]',
+                  color: 'text-[#1DB954]',
                 },
               ].map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-lg border border-[#2E3A47] bg-[#24303F]/60 p-4"
+                  className={`rounded-xl border ${item.border} bg-[#202020] p-4 transition-colors`}
                 >
-                  <p className="text-xs text-slate-400">
+                  <p className="text-[11px] font-medium tracking-wide uppercase text-[#9EA1A5]">
                     {item.label}
                   </p>
-                  <p className={`mt-2 text-lg font-semibold ${item.color}`}>
+                  <p className={`mt-2 tabular-nums text-xl font-bold tracking-tight ${item.color}`}>
                     {money(item.value)}
                   </p>
+                  <p className="mt-1 text-[10px] text-[#777777]">
+                    {item.sub}
+                  </p>
                 </div>
               ))}
             </div>
 
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-300">
-                Budget utilization
-              </span>
-              <span className="text-xs text-slate-400">
-                {percentage(spent + reserved).toFixed(1)}%
-              </span>
-            </div>
+            {/* Linear Allocation Bar */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-mono text-[#9EA1A5] uppercase text-[11px]">
+                  Capital Utilization & Exposure
+                </span>
+                <span className="tabular-nums font-mono text-[#EBEBEB] text-xs font-semibold">
+                  {percentage(spent + reserved).toFixed(1)}% COMMITTED
+                </span>
+              </div>
 
-            <div
-              className="flex h-3 w-full overflow-hidden rounded-full bg-[#0F172A]"
-              aria-label="Budget allocation breakdown"
-            >
               <div
-                className="h-full bg-blue-500"
-                style={{ width: `${percentage(spent)}%` }}
-              />
-              <div
-                className="h-full bg-amber-400"
-                style={{ width: `${percentage(reserved)}%` }}
-              />
-              <div
-                className="h-full bg-emerald-500"
-                style={{ width: `${percentage(available)}%` }}
-              />
-            </div>
-
-<div className="mt-8 grid grid-cols-1 items-center gap-8 lg:grid-cols-2">
-  <div className="h-[260px] w-full">
-    <ResponsiveContainer width="100%" height="100%">
-      <PieChart>
-        <Pie
-          data={[
-            { name: 'Spent', value: spent },
-            { name: 'Reserved', value: reserved },
-            { name: 'Available', value: available },
-          ].filter((item) => item.value > 0)}
-          cx="50%"
-          cy="50%"
-          innerRadius={72}
-          outerRadius={100}
-          paddingAngle={4}
-          dataKey="value"
-          stroke="none"
-        >
-          <Cell fill="#3C50E0" />
-          <Cell fill="#F59E0B" />
-          <Cell fill="#10B981" />
-        </Pie>
-        <Tooltip
-          formatter={(value) => money(Number(value))}
-          contentStyle={{
-            backgroundColor: '#1A222C',
-            border: '1px solid #2E3A47',
-            borderRadius: '8px',
-            color: '#FFFFFF',
-          }}
-        />
-      </PieChart>
-    </ResponsiveContainer>
-  </div>
-
-  <div className="space-y-5">
-    <div>
-      <p className="text-sm font-semibold text-white">
-        Budget distribution
-      </p>
-      <p className="mt-1 text-xs text-slate-400">
-        Current allocation breakdown
-      </p>
-    </div>
-
-    {[
-      { label: 'Spent', value: spent, color: '#3C50E0' },
-      { label: 'Reserved', value: reserved, color: '#F59E0B' },
-      { label: 'Available', value: available, color: '#10B981' },
-    ].map((item) => (
-      <div key={item.label} className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span
-            className="h-3 w-3 rounded-full"
-            style={{ backgroundColor: item.color }}
-          />
-          <span className="text-sm text-slate-300">
-            {item.label}
-          </span>
-        </div>
-
-        <div className="text-right">
-          <p className="text-sm font-semibold text-white">
-            {money(item.value)}
-          </p>
-          <p className="text-[11px] text-slate-500">
-            {percentage(item.value).toFixed(1)}%
-          </p>
-        </div>
-      </div>
-    ))}
-  </div>
-</div>
-
-            <div className="mt-5 flex flex-wrap gap-x-6 gap-y-3">
-              {[
-                { label: 'Spent', color: 'bg-blue-500' },
-                { label: 'Reserved', color: 'bg-amber-400' },
-                { label: 'Available', color: 'bg-emerald-500' },
-              ].map((item) => (
+                className="flex h-2.5 w-full overflow-hidden rounded-full bg-[#121212] p-0.5 border border-[rgba(255,255,255,0.06)]"
+                aria-label="Capital breakdown bar"
+              >
                 <div
-                  key={item.label}
-                  className="flex items-center gap-2"
-                >
-                  <span className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
-                  <span className="text-xs text-slate-400">
-                    {item.label}
-                  </span>
+                  className="h-full rounded-l-full bg-[#1657AD] transition-all duration-300"
+                  style={{ width: `${percentage(spent)}%` }}
+                  title={`Spent: ${percentage(spent).toFixed(1)}%`}
+                />
+                <div
+                  className="h-full bg-[#F5B942] transition-all duration-300"
+                  style={{ width: `${percentage(reserved)}%` }}
+                  title={`Reserved: ${percentage(reserved).toFixed(1)}%`}
+                />
+                <div
+                  className="h-full rounded-r-full bg-[#1DB954] transition-all duration-300"
+                  style={{ width: `${percentage(available)}%` }}
+                  title={`Available: ${percentage(available).toFixed(1)}%`}
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-6 pt-1 text-[11px] font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#1657AD]" />
+                  <span className="text-[#9EA1A5]">Settled ({percentage(spent).toFixed(1)}%)</span>
                 </div>
-              ))}
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#F5B942]" />
+                  <span className="text-[#9EA1A5]">Reserved Escrow ({percentage(reserved).toFixed(1)}%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#1DB954]" />
+                  <span className="text-[#9EA1A5]">Available ({percentage(available).toFixed(1)}%)</span>
+                </div>
+              </div>
             </div>
-          </>
+
+            {/* Donut Chart & Detailed Ledger Positions */}
+            <div className="grid grid-cols-1 items-center gap-8 border-t border-[rgba(255,255,255,0.06)] pt-6 lg:grid-cols-2">
+              <div className="h-[220px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={64}
+                      outerRadius={92}
+                      paddingAngle={4}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {chartData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(val) => money(Number(val))}
+                      contentStyle={{
+                        backgroundColor: '#181818',
+                        borderColor: 'rgba(255,255,255,0.12)',
+                        borderRadius: '10px',
+                        color: '#EBEBEB',
+                        fontFamily: 'monospace',
+                        fontSize: '12px',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-[#EBEBEB] font-mono">
+                    Deterministic Reserve Ratios
+                  </h3>
+                  <p className="mt-0.5 text-xs text-[#777777]">
+                    Governed through PostgreSQL row-level locks on budget entries
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  {[
+                    { label: 'Settled Spent', value: spent, color: '#1657AD' },
+                    { label: 'Escrow Reserved', value: reserved, color: '#F5B942' },
+                    { label: 'Free Liquidity', value: available, color: '#1DB954' },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex items-center justify-between rounded-lg border border-[rgba(255,255,255,0.05)] bg-[#141414] px-4 py-2.5"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-xs text-[#9EA1A5]">
+                          {item.label}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="tabular-nums font-mono text-xs font-bold text-[#EBEBEB]">
+                          {money(item.value)}
+                        </span>
+                        <span className="ml-2 tabular-nums text-[10px] font-mono text-[#777777]">
+                          ({percentage(item.value).toFixed(1)}%)
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Optional Category Breakdown if present from API */}
+            {spending && spending.by_category && Object.keys(spending.by_category).length > 0 && (
+              <div className="border-t border-[rgba(255,255,255,0.06)] pt-5">
+                <h4 className="text-[11px] font-mono uppercase tracking-wider text-[#777777] mb-3">
+                  Expenditure by Category
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(spending.by_category).map(([cat, amt]) => (
+                    <div
+                      key={cat}
+                      className="flex items-center gap-2 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#141414] px-3 py-1.5 text-xs"
+                    >
+                      <span className="font-mono text-[#9EA1A5] uppercase">{cat}</span>
+                      <span className="tabular-nums font-mono font-medium text-[#EBEBEB]">
+                        {money(Number(amt))}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </section>
 
       {error && (
-        <p className="text-xs text-amber-300">
-          Metrics unavailable: {error}
-        </p>
+        <div className="rounded-xl border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.08)] p-4 text-xs text-[#EF4444]">
+          Telemetric sync warning: {error}
+        </div>
       )}
     </div>
   );

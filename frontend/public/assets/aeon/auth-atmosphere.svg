@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2560 1440" width="2560" height="1440" fill="none">
+  <defs>
+    <radialGradient id="navyDepth" cx="65%" cy="50%" r="60%" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0E265F" stop-opacity="0.45" />
+      <stop offset="45%" stop-color="#12388D" stop-opacity="0.18" />
+      <stop offset="85%" stop-color="#121212" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#121212" />
+    </radialGradient>
+    <linearGradient id="gateBeam" x1="1720" y1="200" x2="1720" y2="1240" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00F0FF" stop-opacity="0" />
+      <stop offset="50%" stop-color="#00F0FF" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#1657AD" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+  
+  <rect width="2560" height="1440" fill="#121212" />
+  <rect width="2560" height="1440" fill="url(#navyDepth)" />
+  
+  <!-- Left Third: Pure Obsidian Calm for the Login / Auth Form -->
+  <rect x="0" y="0" width="900" height="1440" fill="#121212" opacity="0.92" />
+  <line x1="900" y1="0" x2="900" y2="1440" stroke="rgba(255,255,255,0.04)" stroke-width="1" />
+  
+  <!-- Right Two-Thirds: Fine Luminous Lattice Converging into Verification Gate -->
+  <g stroke="rgba(255,255,255,0.06)" stroke-width="1">
+    <line x1="950" y1="360" x2="1720" y2="720" />
+    <line x1="950" y1="540" x2="1720" y2="720" />
+    <line x1="950" y1="720" x2="1720" y2="720" stroke="rgba(0,240,255,0.2)" />
+    <line x1="950" y1="900" x2="1720" y2="720" />
+    <line x1="950" y1="1080" x2="1720" y2="720" />
+    
+    <line x1="1300" y1="180" x2="1720" y2="720" />
+    <line x1="1500" y1="180" x2="1720" y2="720" />
+    <line x1="1300" y1="1260" x2="1720" y2="720" />
+    <line x1="1500" y1="1260" x2="1720" y2="720" />
+    
+    <!-- Concentric verification ranges -->
+    <circle cx="1720" cy="720" r="160" stroke="rgba(255,255,255,0.05)" fill="none" />
+    <circle cx="1720" cy="720" r="320" stroke="rgba(255,255,255,0.04)" fill="none" stroke-dasharray="4 8" />
+    <circle cx="1720" cy="720" r="480" stroke="rgba(255,255,255,0.03)" fill="none" stroke-dasharray="2 6" />
+  </g>
+  
+  <!-- Outbound verified pathways -->
+  <g stroke="rgba(29,185,84,0.3)" stroke-width="1.2">
+    <line x1="1720" y1="720" x2="2400" y2="520" stroke-dasharray="6 6" />
+    <line x1="1720" y1="720" x2="2400" y2="720" />
+    <line x1="1720" y1="720" x2="2400" y2="920" stroke-dasharray="6 6" />
+  </g>
+  
+  <!-- Verification Gate Architecture (x=1720, y=720) -->
+  <line x1="1720" y1="360" x2="1720" y2="1080" stroke="url(#gateBeam)" stroke-width="2" />
+  <rect x="1710" y="660" width="20" height="120" rx="4" fill="#181818" stroke="rgba(0,240,255,0.4)" stroke-width="1.5" />
+  
+  <!-- Single Cyan Node Pulsing at the Gate -->
+  <circle cx="1720" cy="720" r="28" fill="rgba(0,240,255,0.08)" />
+  <circle cx="1720" cy="720" r="14" fill="rgba(0,240,255,0.2)" />
+  <circle cx="1720" cy="720" r="5" fill="#00F0FF" />
+  <circle cx="1720" cy="720" r="2" fill="#FFFFFF" />
+  
+  <!-- Nodes along the lattice -->
+  <circle cx="1180" cy="460" r="3" fill="#55585D" />
+  <circle cx="1450" cy="380" r="3" fill="#55585D" />
+  <circle cx="1280" cy="840" r="3" fill="#55585D" />
+  <circle cx="1520" cy="880" r="3" fill="#55585D" />
+  <circle cx="2100" cy="720" r="3.5" fill="#1DB954" />
+</svg>

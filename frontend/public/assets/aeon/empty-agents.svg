@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" fill="none" width="640" height="480">
+  <!-- Empty Agents State: An empty node socket ringed by thin guides -->
+  <rect width="640" height="480" fill="#181818" rx="16" />
+  <rect x="0.5" y="0.5" width="639" height="479" rx="15.5" stroke="rgba(255,255,255,0.06)" />
+  
+  <!-- Outer Concentric Guide Rings -->
+  <circle cx="320" cy="230" r="72" stroke="rgba(255,255,255,0.04)" stroke-width="1" />
+  <circle cx="320" cy="230" r="54" stroke="rgba(255,255,255,0.07)" stroke-width="1" stroke-dasharray="4 6" />
+  <circle cx="320" cy="230" r="36" stroke="#00F0FF" stroke-width="1.2" stroke-dasharray="2 4" opacity="0.4" />
+  
+  <!-- Four Orthogonal Alignment Crosshairs -->
+  <line x1="320" y1="130" x2="320" y2="170" stroke="#55585D" stroke-width="1" />
+  <line x1="320" y1="290" x2="320" y2="330" stroke="#55585D" stroke-width="1" />
+  <line x1="220" y1="230" x2="260" y2="230" stroke="#55585D" stroke-width="1" />
+  <line x1="380" y1="230" x2="420" y2="230" stroke="#55585D" stroke-width="1" />
+  
+  <!-- Empty Node Central Socket Core -->
+  <circle cx="320" cy="230" r="18" fill="#121212" stroke="#55585D" stroke-width="1.5" />
+  <circle cx="320" cy="230" r="6" stroke="#9EA1A5" stroke-width="1" stroke-dasharray="2 2" />
+  
+  <text x="320" y="350" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="11" letter-spacing="0.12em" fill="#777777">SOCKET UNPROVISIONED · NO REGISTERED AGENTS</text>
+</svg>

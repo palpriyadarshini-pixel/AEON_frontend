@@ -4,32 +4,89 @@
 
 :root {
   color-scheme: dark;
+  --aeon-canvas: #121212;
+  --aeon-surface: #181818;
+  --aeon-nested: #202020;
+  --aeon-border: rgba(255, 255, 255, 0.08);
+  --aeon-border-strong: rgba(255, 255, 255, 0.14);
+  --aeon-text-primary: #EBEBEB;
+  --aeon-text-secondary: #9EA1A5;
+  --aeon-text-muted: #777777;
+  --aeon-emerald: #1DB954;
+  --aeon-cyan: #00F0FF;
+  --aeon-amber: #F5B942;
+  --aeon-crimson: #EF4444;
+  --aeon-deep-blue: #0E265F;
+  --aeon-navy-accent: #1657AD;
 }
 
 body {
   margin: 0;
-  background-color: #090d16;
-  color: #f8fafc;
-  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #121212;
+  color: #EBEBEB;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom crisp scrollbars */
+/* Enforce tabular figures for USD values, balances, latency, counts, IDs, thresholds and timestamps */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle blueprint texture layer */
+.bg-grid-texture {
+  background-image: url('/assets/aeon/grain-grid.svg');
+  background-repeat: repeat;
+}
+
+/* Custom crisp dark scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #121212;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Restrained Cyan Pulse Animation for Active Telemetry */
+@keyframes cyanPulse {
+  0%, 100% { opacity: 0.95; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.96); }
+}
+
+.telemetry-pulse {
+  animation: cyanPulse 2.4s ease-in-out infinite;
+}
+
+/* Shimmer animation for loading skeletons */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #181818 25%, #202020 50%, #181818 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite;
+}
+
+/* Full prefers-reduced-motion support */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

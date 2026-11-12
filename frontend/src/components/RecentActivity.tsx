@@ -1,11 +1,13 @@
-
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { fetchDashboardOverview } from '../services/api';
-import { IconInbox } from './icons';
+import type { RecentActivityItem } from '../types';
+import { StatusBadge } from './StatusBadge';
+import { EmptyState } from './EmptyState';
 
 export function RecentActivity() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<RecentActivityItem[]>([]);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
@@ -16,6 +18,8 @@ export function RecentActivity() {
       setError(
         e instanceof Error ? e.message : 'Unable to load recent activity',
       );
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -25,95 +29,99 @@ export function RecentActivity() {
     return () => window.clearInterval(timer);
   }, [refresh]);
 
-  const actionColor = (action: string) => {
-    if (action.includes('APPROVED') || action.includes('SETTLED')) {
-      return 'bg-emerald-500/10 text-emerald-400';
-    }
-    if (action.includes('REJECTED') || action.includes('BLOCKED')) {
-      return 'bg-red-500/10 text-red-400';
-    }
-    if (action.includes('RESERVED') || action.includes('REQUESTED')) {
-      return 'bg-blue-500/10 text-blue-400';
-    }
-    return 'bg-slate-700/50 text-slate-300';
-  };
-
   return (
-    <section className="overflow-hidden rounded-xl border border-[#2E3A47] bg-[#1A222C]">
-      {/* Heading */}
-      <div className="flex flex-col justify-between gap-3 border-b border-[#2E3A47] px-5 py-5 sm:flex-row sm:items-center">
+    <section className="overflow-hidden rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#181818]">
+      {/* Table Header */}
+      <div className="flex flex-col justify-between gap-3 border-b border-[rgba(255,255,255,0.06)] px-6 py-5 sm:flex-row sm:items-center">
         <div>
-          <h2 className="text-base font-semibold text-white">
-            Recent Activity
-          </h2>
-          <p className="mt-1 text-xs text-slate-400">
-            Latest procurement, approval and financial events
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-[#EBEBEB] font-mono">
+              Operational Telemetry & Event Feed
+            </h2>
+            <span className="h-1.5 w-1.5 rounded-full bg-[#00F0FF] telemetry-pulse" />
+          </div>
+          <p className="mt-1 text-xs text-[#9EA1A5]">
+            Chronological audit stream of agent purchase evaluations, human decisions, and PayPal settlement events
           </p>
         </div>
 
-        <span className="w-fit rounded-full bg-[#24303F] px-3 py-1.5 text-xs text-slate-300">
-          {rows.length} events
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-lg border border-[rgba(255,255,255,0.06)] bg-[#202020] px-3 py-1 text-xs font-mono text-[#9EA1A5]">
+            {rows.length} RECORDED EVENTS
+          </span>
+        </div>
       </div>
 
       {error && (
-        <p className="border-b border-[#2E3A47] px-5 py-3 text-xs text-amber-300">
-          {error}
-        </p>
+        <div className="border-b border-[rgba(239,68,68,0.2)] bg-[rgba(239,68,68,0.06)] px-6 py-3 text-xs text-[#EF4444]">
+          Feed warning: {error}
+        </div>
       )}
 
-      {/* Activity table */}
+      {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left">
-          <thead className="bg-[#24303F]">
-            <tr className="text-xs font-medium text-slate-400">
-              <th className="px-5 py-4">Timestamp</th>
-              <th className="px-5 py-4">Actor</th>
-              <th className="px-5 py-4">Action</th>
-              <th className="px-5 py-4">Entity</th>
-              <th className="px-5 py-4">Metadata</th>
+        <table className="w-full min-w-[760px] text-left border-collapse">
+          <thead>
+            <tr className="border-b border-[rgba(255,255,255,0.06)] bg-[#141414] text-[11px] font-mono uppercase tracking-wider text-[#777777]">
+              <th className="px-6 py-3.5 font-medium">Timestamp</th>
+              <th className="px-6 py-3.5 font-medium">Actor</th>
+              <th className="px-6 py-3.5 font-medium">Action Verdict</th>
+              <th className="px-6 py-3.5 font-medium">Target Entity</th>
+              <th className="px-6 py-3.5 font-medium">Event Metadata</th>
             </tr>
           </thead>
 
-          <tbody>
-            {rows.length === 0 ? (
+          <tbody className="divide-y divide-[rgba(255,255,255,0.04)] text-xs">
+            {loading ? (
               <tr>
-                <td colSpan={5} className="py-12 text-center">
-                  <div className="flex flex-col items-center gap-2 text-slate-500">
-                    <IconInbox className="h-7 w-7" />
-                    <p className="text-sm text-slate-300">
-                      No recent activity recorded
-                    </p>
-                    <p className="text-xs">
-                      New events will appear here
-                    </p>
-                  </div>
+                <td colSpan={5} className="py-12 text-center text-xs text-[#777777] font-mono">
+                  Loading telemetry feed…
+                </td>
+              </tr>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="p-6">
+                  <EmptyState
+                    title="No Recent Activity"
+                    description="No procurement, authorization, or settlement actions have been recorded in the current session."
+                    illustration="ledger"
+                  />
                 </td>
               </tr>
             ) : (
-              rows.slice(0, 8).map((row) => (
+              rows.slice(0, 10).map((row) => (
                 <tr
                   key={row.id}
-                  className="border-t border-[#2E3A47] text-xs text-slate-300 transition-colors hover:bg-[#24303F]/60"
+                  className="transition-colors hover:bg-[#202020]/70"
                 >
-                  <td className="whitespace-nowrap px-5 py-4 text-slate-400">
-                    {new Date(row.created_at).toLocaleString()}
+                  <td className="whitespace-nowrap px-6 py-4 font-mono text-[11px] tabular-nums text-[#9EA1A5]">
+                    {new Date(row.created_at).toLocaleString([], {
+                      month: 'short',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })}
                   </td>
-
-                  <td className="px-5 py-4">{row.actor_type}</td>
-
-                  <td className="px-5 py-4">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium ${actionColor(row.action)}`}
-                    >
-                      {row.action}
-                    </span>
+                  <td className="whitespace-nowrap px-6 py-4">
+                    <div className="flex items-center gap-1.5 font-mono text-xs">
+                      <span className="text-[#00F0FF]">[{row.actor_type}]</span>
+                      <span className="truncate max-w-[120px] text-[#EBEBEB]">
+                        {row.actor_id ? row.actor_id.slice(0, 8) + '…' : 'SYSTEM'}
+                      </span>
+                    </div>
                   </td>
-
-                  <td className="px-5 py-4">{row.entity_type}</td>
-
-                  <td className="max-w-xs truncate px-5 py-4 text-slate-500">
-                    {JSON.stringify(row.metadata_json ?? {})}
+                  <td className="whitespace-nowrap px-6 py-4">
+                    <StatusBadge value={row.action} />
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-4 font-mono text-xs text-[#9EA1A5]">
+                    <span className="text-[#777777]">{row.entity_type}: </span>
+                    <span className="text-[#EBEBEB]">{row.entity_id ? row.entity_id.slice(0, 8) + '…' : '—'}</span>
+                  </td>
+                  <td className="px-6 py-4 max-w-xs truncate font-mono text-[11px] text-[#777777]">
+                    {row.metadata_json && Object.keys(row.metadata_json).length > 0
+                      ? JSON.stringify(row.metadata_json)
+                      : '—'}
                   </td>
                 </tr>
               ))
