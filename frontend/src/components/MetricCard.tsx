@@ -1,3 +1,4 @@
+
 interface MetricCardProps {
   title: string;
   value: string | number;
@@ -16,36 +17,43 @@ export function MetricCard({
   icon: Icon,
 }: MetricCardProps) {
   const badgeClasses = {
-    neutral: 'bg-aeon-surface border-aeon-border text-aeon-textMuted',
-    success: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
-    warning: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
-    danger: 'bg-red-500/10 border-red-500/20 text-red-400',
-    cyan: 'bg-aeon-cyan/10 border-aeon-cyan/20 text-aeon-cyan',
+    neutral: 'bg-slate-700/40 text-slate-300',
+    success: 'bg-emerald-500/10 text-emerald-400',
+    warning: 'bg-amber-500/10 text-amber-400',
+    danger: 'bg-red-500/10 text-red-400',
+    cyan: 'bg-blue-500/10 text-blue-400',
   }[badgeVariant];
 
   return (
-    <div className="p-4 rounded-xl bg-aeon-card border border-aeon-border relative overflow-hidden transition-all hover:border-slate-700">
+    <div className="rounded-xl border border-[#2E3A47] bg-[#1A222C] p-5 transition-all duration-200 hover:border-[#3C50E0]/60">
+      {/* Card heading */}
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-aeon-textMuted uppercase tracking-wider font-mono">
+        <h3 className="text-sm font-medium text-slate-400">
           {title}
-        </span>
-        <div className="p-1.5 rounded-md bg-aeon-surface border border-aeon-borderSubtle text-aeon-textSecondary">
-          <Icon className="w-3.5 h-3.5" />
+        </h3>
+
+        <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#24303F] text-[#8098F9]">
+          <Icon className="h-5 w-5" />
         </div>
       </div>
 
-      <div className="mt-3">
-        <div className="text-2xl font-bold font-mono tracking-tight text-white">
+      {/* Metric */}
+      <div className="mt-4">
+        <p className="break-words text-2xl font-bold tracking-tight text-white sm:text-3xl">
           {value}
-        </div>
-        <p className="text-[11px] text-aeon-textMuted mt-1">
+        </p>
+        <p className="mt-2 text-xs text-slate-400">
           {subtitle}
         </p>
       </div>
 
-      <div className="mt-3 pt-2.5 border-t border-aeon-borderSubtle flex items-center justify-between text-[10px]">
-        <span className="text-aeon-textMuted font-mono">Integration State</span>
-        <span className={`px-2 py-0.5 rounded border font-mono font-medium ${badgeClasses}`}>
+      {/* Integration status */}
+      <div className="mt-5 flex items-center justify-between border-t border-[#2E3A47] pt-4">
+        <span className="text-xs text-slate-500">
+          Integration state
+        </span>
+
+        <span className={`rounded-full px-3 py-1 text-[10px] font-medium ${badgeClasses}`}>
           {badgeText}
         </span>
       </div>

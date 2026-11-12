@@ -1,7 +1,251 @@
+
 import { useEffect, useState } from 'react';
 import { fetchPolicies } from '../services/api';
+
+interface PolicyVersion {
+  version: number;
+  max_amount_per_transaction: number | string;
+  max_amount_per_day: number | string;
+  approval_threshold_amount: number | string;
+  allowed_currencies?: string[];
+  allowed_suppliers?: string[];
+}
+
+interface PolicyRecord {
+  id: string;
+  name: string;
+  description: string;
+  is_active: boolean;
+  versions?: PolicyVersion[];
+}
+
+const money = (value: number | string) =>
+  `$${Number(value).toFixed(2)}`;
+
 export function PoliciesDirectory() {
-  const [policies, setPolicies] = useState<any[]>([]); const [error, setError] = useState('');
-  useEffect(() => { let alive = true; fetchPolicies().then((data) => { if (alive) setPolicies(data); }).catch((e) => { if (alive) setError(e instanceof Error ? e.message : 'Unable to load policies'); }); return () => { alive = false; }; }, []);
-  return <section className="space-y-5"><div><h2 className="text-lg font-semibold text-white">Deterministic Procurement Policies</h2><p className="mt-1 text-xs text-aeon-textMuted">Policy definitions are created and enforced by the Python backend, not by frontend or LLM decisions.</p></div>{error && <div className="rounded-md border border-red-800 bg-red-950/30 p-3 text-xs text-red-300">{error}</div>}{policies.length === 0 ? <div className="rounded-xl border border-aeon-border bg-aeon-card p-8 text-sm text-aeon-textMuted">No policies are available for this organization.</div> : <div className="grid gap-4 md:grid-cols-2">{policies.map((policy) => { const version = policy.versions?.slice().sort((a: any,b: any) => b.version-a.version)[0]; return <article key={policy.id} className="rounded-xl border border-aeon-border bg-aeon-card p-5"><div className="flex justify-between gap-3"><h3 className="font-semibold text-white">{policy.name}</h3><span className="text-[10px] text-emerald-300">{policy.is_active ? 'ACTIVE' : 'INACTIVE'}</span></div><p className="mt-1 text-xs text-aeon-textMuted">{policy.description}</p>{version && <div className="mt-4 grid grid-cols-2 gap-3 text-xs"><div className="rounded bg-aeon-bg p-3"><span className="text-aeon-textMuted">Per transaction</span><p className="mt-1 font-mono text-white">${Number(version.max_amount_per_transaction).toFixed(2)}</p></div><div className="rounded bg-aeon-bg p-3"><span className="text-aeon-textMuted">Daily maximum</span><p className="mt-1 font-mono text-white">${Number(version.max_amount_per_day).toFixed(2)}</p></div><div className="rounded bg-aeon-bg p-3"><span className="text-aeon-textMuted">Approval threshold</span><p className="mt-1 font-mono text-white">${Number(version.approval_threshold_amount).toFixed(2)}</p></div><div className="rounded bg-aeon-bg p-3"><span className="text-aeon-textMuted">Currency</span><p className="mt-1 font-mono text-white">{(version.allowed_currencies ?? []).join(', ')}</p></div></div>}<div className="mt-4"><p className="text-[10px] uppercase text-aeon-textMuted">Allowed suppliers</p><div className="mt-2 flex flex-wrap gap-1.5">{(version?.allowed_suppliers ?? []).map((supplier: string) => <span key={supplier} className="rounded border border-aeon-border bg-aeon-bg px-2 py-1 text-[10px] text-slate-300">{supplier}</span>)}</div></div></article>; })}</div>}</section>;
+  const [policies, setPolicies] = useState<PolicyRecord[]>([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+
+    fetchPolicies()
+      .then((data) => {
+        if (alive) {
+          setPolicies(data as PolicyRecord[]);
+          setError('');
+        }
+      })
+      .catch((e) => {
+        if (alive) {
+          setError(
+            e instanceof Error
+              ? e.message
+              : 'Unable to load policies',
+          );
+        }
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  return (
+    <section className="space-y-6 pt-3">
+
+      {/* PAGE HEADER */}
+      <div>
+        <p className="mb-1 text-xs font-medium uppercase tracking-wider text-slate-500">
+          AEON / Governance
+        </p>
+
+        <h2 className="text-2xl font-semibold tracking-tight text-white">
+          Procurement Policies
+        </h2>
+
+        <p className="mt-1 text-sm text-slate-400">
+          Review spending limits, approval thresholds and supplier restrictions.
+        </p>
+      </div>
+
+      {/* ERROR */}
+      {error && (
+        <div
+          role="alert"
+          className="rounded-md border border-red-800 bg-red-950/30 p-3 text-sm text-red-300"
+        >
+          {error}
+        </div>
+      )}
+
+      {/* LOADING */}
+      {loading ? (
+        <div className="rounded-lg border border-slate-700/60 bg-[#1A222C] p-8 text-center text-sm text-slate-400">
+          Loading procurement policies...
+        </div>
+      ) : policies.length === 0 ? (
+        <div className="rounded-lg border border-slate-700/60 bg-[#1A222C] p-10 text-center">
+          <h3 className="text-sm font-semibold text-white">
+            No policies available
+          </h3>
+          <p className="mt-2 text-xs text-slate-500">
+            No procurement policies are available for this organization.
+          </p>
+        </div>
+      ) : (
+
+        /* POLICY GRID */
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+
+          {policies.map((policy) => {
+            const version = policy.versions
+              ?.slice()
+              .sort((a, b) => b.version - a.version)[0];
+
+            return (
+              <article
+                key={policy.id}
+                className="rounded-lg border border-slate-700/60 bg-[#1A222C] p-5 transition-colors hover:border-slate-600"
+              >
+
+                {/* POLICY HEADER */}
+                <div className="flex items-start justify-between gap-4 border-b border-slate-700/50 pb-4">
+
+                  <div className="min-w-0">
+                    <h3 className="text-base font-semibold text-white">
+                      {policy.name}
+                    </h3>
+
+                    <p className="mt-2 text-sm leading-5 text-slate-400">
+                      {policy.description || 'No description provided.'}
+                    </p>
+                  </div>
+
+                  <span
+                    className={`shrink-0 rounded border px-2 py-1 text-[10px] font-semibold ${
+                      policy.is_active
+                        ? 'border-emerald-700/50 bg-emerald-950/30 text-emerald-400'
+                        : 'border-slate-700 bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    {policy.is_active ? 'ACTIVE' : 'INACTIVE'}
+                  </span>
+
+                </div>
+
+                {/* VERSION */}
+                {version ? (
+                  <>
+                    <div className="mt-4 flex items-center justify-between">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Policy configuration
+                      </p>
+
+                      <span className="rounded bg-slate-800 px-2 py-1 font-mono text-[10px] text-slate-300">
+                        Version {version.version}
+                      </span>
+                    </div>
+
+                    {/* POLICY LIMITS */}
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+                      <div className="rounded-md border border-slate-700/50 bg-[#0B1220] p-4">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                          Per transaction
+                        </p>
+
+                        <p className="mt-2 font-mono text-lg font-semibold text-white">
+                          {money(version.max_amount_per_transaction)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-md border border-slate-700/50 bg-[#0B1220] p-4">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                          Daily maximum
+                        </p>
+
+                        <p className="mt-2 font-mono text-lg font-semibold text-white">
+                          {money(version.max_amount_per_day)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-md border border-slate-700/50 bg-[#0B1220] p-4">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                          Approval threshold
+                        </p>
+
+                        <p className="mt-2 font-mono text-lg font-semibold text-amber-300">
+                          {money(version.approval_threshold_amount)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-md border border-slate-700/50 bg-[#0B1220] p-4">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                          Currency
+                        </p>
+
+                        <p className="mt-2 text-sm font-medium text-white">
+                          {version.allowed_currencies?.join(', ') || 'Not specified'}
+                        </p>
+                      </div>
+
+                    </div>
+
+                    {/* ALLOWED SUPPLIERS */}
+                    <div className="mt-5 border-t border-slate-700/50 pt-4">
+
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                        Allowed suppliers
+                      </p>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+
+                        {version.allowed_suppliers?.length ? (
+                          version.allowed_suppliers.map((supplier) => (
+                            <span
+                              key={supplier}
+                              className="rounded border border-slate-700 bg-[#0B1220] px-3 py-1.5 text-xs text-slate-300"
+                            >
+                              {supplier}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-500">
+                            No suppliers specified
+                          </span>
+                        )}
+
+                      </div>
+                    </div>
+
+                  </>
+                ) : (
+                  <div className="mt-5 rounded-md border border-slate-700/50 bg-[#0B1220] p-4">
+                    <p className="text-sm text-slate-400">
+                      No policy version is available.
+                    </p>
+                  </div>
+                )}
+
+                {/* POLICY ID */}
+                <div className="mt-5 border-t border-slate-700/50 pt-3">
+                  <p className="break-all font-mono text-[10px] text-slate-500">
+                    Policy ID: {policy.id}
+                  </p>
+                </div>
+
+              </article>
+            );
+          })}
+
+        </div>
+      )}
+
+    </section>
+  );
 }

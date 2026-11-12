@@ -1,4 +1,5 @@
-
+import { API_MODE, API_BASE_URL } from './config';
+import { mockRequest } from './mockTransport';
 import type {
   PurchaseStatus,
   AgentRecord,
@@ -131,7 +132,18 @@ async function request<T>(
     headers.set('X-Agent-API-Key', options.agentApiKey);
   }
 
-  const response = await fetch(path, {
+  if (API_MODE === 'demo') {
+    return mockRequest<T>(path, {
+      ...init,
+      headers,
+    });
+  }
+
+  const target = path.startsWith('http')
+    ? path
+    : `${API_BASE_URL}${path}`;
+
+  const response = await fetch(target, {
     ...init,
     headers,
   });
@@ -695,9 +707,12 @@ export async function submitPurchase(payload: {
       agentApiKey: key,
     },
   );
+  const quotes = Array.isArray(raw.quotes)
+  ? raw.quotes
+  : [];
 
   const selectedQuote = raw.selected_quote_id
-    ? raw.quotes.find(
+    ? quotes.find(
         (quote) => quote.id === raw.selected_quote_id,
       )
     : undefined;
@@ -727,7 +742,7 @@ export async function submitPurchase(payload: {
   }
 
   const recommendedQuote = raw.recommendation
-    ? raw.quotes.find(
+    ? quotes.find(
         (quote) =>
           quote.id === raw.recommendation?.recommended_quote_id,
       )
@@ -773,7 +788,7 @@ export async function submitPurchase(payload: {
       amount: num(raw.max_budget),
       vendor: selectedQuote?.supplier_name ?? 'No supplier selected',
     },
-    quotes: raw.quotes.map((quote) => ({
+    quotes: quotes.map((quote) => ({
       id: quote.id,
       provider: quote.supplier_name,
       price: num(quote.total_amount),
@@ -1298,6 +1313,8 @@ export async function fetchSpendingSummary(): Promise<SpendingSummaryResponse> {
 export type {
   AgentRecord,
   AuditEvent,
+  BudgetResponse,
+  BudgetReservationResponse,
   LedgerResponse,
   LedgerSummary,
   LedgerTransaction,

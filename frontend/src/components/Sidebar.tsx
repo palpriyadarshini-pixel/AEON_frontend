@@ -1,3 +1,4 @@
+
 import type { NavigationTab, ServiceHealthResponse } from '../types';
 import {
   IconShield,
@@ -11,17 +12,16 @@ import {
 interface NavItem {
   id: NavigationTab;
   label: string;
-  badge: string;
   icon: (props: { className?: string }) => JSX.Element;
 }
 
 const navItems: NavItem[] = [
-  { id: 'overview', label: 'Overview', badge: 'Live', icon: IconShield },
-  { id: 'agents', label: 'Agents', badge: 'Day 2', icon: IconBot },
-  { id: 'procurement', label: 'Procurement', badge: 'Day 2-3', icon: IconFileText },
-  { id: 'policies', label: 'Policies', badge: 'Day 2-3', icon: IconScale },
-  { id: 'transactions', label: 'Transactions', badge: 'Day 4–5', icon: IconCreditCard },
-  { id: 'audit', label: 'Audit Log', badge: 'Day 5', icon: IconHistory },
+  { id: 'overview', label: 'Overview', icon: IconShield },
+  { id: 'agents', label: 'Agents', icon: IconBot },
+  { id: 'procurement', label: 'Procurement', icon: IconFileText },
+  { id: 'policies', label: 'Policies', icon: IconScale },
+  { id: 'transactions', label: 'Transactions', icon: IconCreditCard },
+  { id: 'audit', label: 'Audit Log', icon: IconHistory },
 ];
 
 interface SidebarProps {
@@ -29,83 +29,130 @@ interface SidebarProps {
   onTabChange: (tab: NavigationTab) => void;
   health: ServiceHealthResponse | null;
   loading: boolean;
+  onClose?: () => void;
 }
 
-export function Sidebar({ activeTab, onTabChange, health, loading }: SidebarProps) {
+export function Sidebar({
+  activeTab,
+  onTabChange,
+  health,
+  loading,
+  onClose,
+}: SidebarProps) {
+  const isHealthy = health?.status === 'healthy';
+
   return (
-    <aside className="w-64 border-r border-aeon-border bg-aeon-card flex flex-col justify-between select-none">
-      <div>
-        {/* Navigation Section Title */}
-        <div className="px-4 py-3 border-b border-aeon-borderSubtle">
-          <span className="text-[10px] uppercase font-bold tracking-wider text-aeon-textMuted font-mono">
-            Navigation
-          </span>
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-[#2E3A47] bg-[#1A222C] text-white">
+      {/* Brand */}
+      <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-[#2E3A47] px-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#3C50E0] text-white">
+            <IconShield className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-wider">AEON</h1>
+            <p className="text-[10px] text-slate-400">CONTROL PLANE</p>
+          </div>
         </div>
 
-        {/* Navigation List */}
-        <nav className="p-2 space-y-1">
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close navigation"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-[#24303F] hover:text-white"
+          >
+            <span className="text-2xl leading-none">&times;</span>
+          </button>
+        )}
+      </div>
+
+      {/* Navigation */}
+      <div className="flex-1 overflow-y-auto px-4 py-7">
+        <h3 className="mb-4 px-4 text-xs font-semibold uppercase text-slate-400">
+          MENU
+        </h3>
+
+        <nav className="space-y-2">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             const Icon = item.icon;
+
             return (
               <button
                 key={item.id}
-                onClick={() => onTabChange(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition-all ${
+                type="button"
+                onClick={() => {
+                  onTabChange(item.id);
+                  onClose?.();
+                }}
+                aria-current={isActive ? 'page' : undefined}
+                className={`group flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-aeon-surface border border-aeon-border text-aeon-cyan'
-                    : 'text-aeon-textSecondary hover:text-white hover:bg-aeon-surfaceHover/60 border border-transparent'
+                    ? 'bg-[#3C50E0] text-white'
+                    : 'text-slate-400 hover:bg-[#24303F] hover:text-white'
                 }`}
               >
-                <div className="flex items-center space-x-2.5">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-aeon-cyan' : 'text-aeon-textMuted'}`} />
-                  <span>{item.label}</span>
-                </div>
-                <span
-                  className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${
-                    item.badge === 'Live'
-                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                      : 'bg-aeon-bg text-aeon-textMuted border border-aeon-borderSubtle'
+                <Icon
+                  className={`h-5 w-5 shrink-0 ${
+                    isActive
+                      ? 'text-white'
+                      : 'text-slate-400 group-hover:text-white'
                   }`}
-                >
-                  {item.badge}
-                </span>
+                />
+                <span>{item.label}</span>
               </button>
             );
           })}
         </nav>
       </div>
 
-      {/* System Telemetry in Footer */}
-      <div className="p-3 m-3 rounded-lg bg-aeon-bg border border-aeon-borderSubtle text-[11px] font-mono space-y-2">
-        <div className="flex items-center justify-between border-b border-aeon-borderSubtle pb-1.5">
-          <span className="text-[10px] text-aeon-textMuted uppercase">Service Telemetry</span>
-          <span className={`h-1.5 w-1.5 rounded-full ${health?.status === 'healthy' ? 'bg-emerald-400' : 'bg-red-500'}`} />
-        </div>
-        {loading ? (
-          <p className="text-aeon-textMuted text-[10px]">Polling telemetry...</p>
-        ) : health ? (
-          <div className="space-y-1 text-[10px] text-aeon-textSecondary">
-            <div className="flex justify-between">
-              <span className="text-aeon-textMuted">Service:</span>
-              <span className="text-white truncate max-w-[110px]">{health.app ?? health.service ?? 'AEON API'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-aeon-textMuted">Version:</span>
-              <span className="text-aeon-cyan">{health.version ?? 'v1'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-aeon-textMuted">Uptime:</span>
-              <span>{health.uptimeSeconds ?? '—'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-aeon-textMuted">Env:</span>
-              <span className="capitalize">{health.environment ?? 'unknown'}</span>
-            </div>
+      {/* System Status */}
+      <div className="shrink-0 border-t border-[#2E3A47] p-4">
+        <div className="rounded-lg border border-[#2E3A47] bg-[#24303F] p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-xs font-semibold text-white">
+              System Status
+            </span>
+            <span
+              className={`h-2 w-2 rounded-full ${
+                isHealthy ? 'bg-green-400' : 'bg-red-400'
+              }`}
+            />
           </div>
-        ) : (
-          <p className="text-red-400 text-[10px]">Backend unreachable on :8000</p>
-        )}
+
+          {loading ? (
+            <p className="text-xs text-slate-400">Checking service...</p>
+          ) : health ? (
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between gap-2">
+                <span className="text-slate-400">Service</span>
+                <span className="truncate text-slate-200">
+                  {health.app ?? health.service ?? 'AEON API'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Version</span>
+                <span className="text-slate-200">
+                  {health.version ?? 'v1'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Environment</span>
+                <span className="capitalize text-slate-200">
+                  {health.environment ?? 'unknown'}
+                </span>
+              </div>
+              <div className="border-t border-[#2E3A47] pt-3">
+                <span className={isHealthy ? 'text-green-400' : 'text-red-400'}>
+                  {isHealthy ? '● Operational' : '● Degraded'}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-red-400">Backend unreachable</p>
+          )}
+        </div>
       </div>
     </aside>
   );
