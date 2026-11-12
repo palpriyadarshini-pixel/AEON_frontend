@@ -28,6 +28,7 @@ export function AgentDirectory() {
   const [name, setName] = useState('Research Agent');
   const [budget, setBudget] = useState('10');
   const [singleLimit, setSingleLimit] = useState('5');
+  const [approvalThreshold, setApprovalThreshold] = useState('5');
   const [vendors, setVendors] = useState(
     'mock_supplier_a, mock_supplier_b',
   );
@@ -164,6 +165,7 @@ export function AgentDirectory() {
         name,
         budget: Number(budget),
         max_single_purchase: Number(singleLimit),
+        approval_threshold: Number(approvalThreshold),
         allowed_vendors: vendors
           .split(',')
           .map((vendor) => vendor.trim())
@@ -275,6 +277,25 @@ export function AgentDirectory() {
                 className={inputClass}
               />
             </label>
+
+<label className="block text-sm text-slate-400">
+  Automatic approval threshold (USD)
+  <input
+    required
+    min="0"
+    step="0.01"
+    type="number"
+    value={approvalThreshold}
+    onChange={(e) => setApprovalThreshold(e.target.value)}
+    className={inputClass}
+    placeholder="5.00"
+  />
+  <span className="mt-1 block text-xs text-slate-500">
+    Purchases up to this amount can be automatically authorized.
+    Higher amounts require human approval.
+  </span>
+</label>
+
 
             <label className="block text-sm text-slate-400">
               Allowed suppliers

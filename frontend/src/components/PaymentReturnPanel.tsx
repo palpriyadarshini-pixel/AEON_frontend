@@ -20,9 +20,11 @@ export function PaymentReturnPanel() {
         const next = await fetchPayPalStatus(orderId);
         if (!active) return;
         setPayment(next); setError('');
-        if (!['COMPLETED', 'FAILED', 'CANCELLED', 'VOIDED'].includes(next.status)) {
-          timer = window.setTimeout(refresh, 4000);
-        }
+        const terminalStatuses = ['COMPLETED', 'FAILED', 'REFUNDED'];
+
+if (!terminalStatuses.includes(next.status)) {
+  timer = window.setTimeout(refresh, 4000);
+}
       } catch (e) {
         if (active) { setError(e instanceof Error ? e.message : 'Unable to retrieve payment status'); timer = window.setTimeout(refresh, 5000); }
       }
@@ -35,9 +37,13 @@ export function PaymentReturnPanel() {
         setPayment(prior);
         if (prior.status === 'COMPLETED') { setMessage('PayPal already reports a completed capture.'); return; }
         if (prior.status === 'CAPTURE_PENDING') {
-          setMessage('PayPal capture is already pending review. AEON will retain the budget reservation and will not send another capture request.');
-          return;
-        }
+  setMessage(
+    'PayPal capture is pending. AEON is retaining the budget reservation and checking the authoritative payment status.',
+  );
+
+  await refresh();
+  return;
+}
         if (!['ORDER_CREATED', 'BUYER_APPROVAL_PENDING'].includes(prior.status)) {
           setMessage(`Payment attempt is currently ${prior.status}. No new capture request was submitted.`);
           return;

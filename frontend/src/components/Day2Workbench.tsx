@@ -57,18 +57,56 @@ export function Day2Workbench() {
     finally { setBusy(false); }
   };
 
-  const approveAndPay = async () => {
-    if (!result || result.decision === 'BLOCKED') return;
-    setBusy(true); setError(''); setCheckoutMessage('Submitting human approval, if required by policy…');
-    try {
+  
+const approveAndPay = async () => {
+  if (!result || busy) return;
+
+  // A blocked purchase must never reach PayPal.
+  if (result.decision === 'BLOCKED') {
+    setError('This purchase is blocked by policy. PayPal checkout is unavailable.');
+    return;
+  }
+
+  setBusy(true);
+  setError('');
+
+  try {
+    // Only purchases requiring approval should enter the approval workflow.
+    if (result.decision === 'REQUIRES_APPROVAL') {
+      setCheckoutMessage('Submitting human approval...');
+
       await approvePurchase(result.transaction.id);
-      setCheckoutMessage('Creating PayPal Orders v2 checkout…');
-      const order = await createPayPalOrder(result.transaction.id);
-      setCheckoutMessage(`PayPal order ${order.orderID} created. Redirecting to Sandbox…`);
-      window.location.assign(order.approvalUrl);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not start PayPal checkout'); setCheckoutMessage(''); }
-    finally { setBusy(false); }
-  };
+
+      setCheckoutMessage(
+        'Human approval completed. Creating PayPal checkout...',
+      );
+    } else if (result.decision === 'AUTHORIZED') {
+      setCheckoutMessage(
+        'Policy authorization confirmed. Creating PayPal checkout...',
+      );
+    } else {
+      throw new Error('Unknown procurement decision. Checkout stopped.');
+    }
+
+    const order = await createPayPalOrder(result.transaction.id);
+
+    setCheckoutMessage(
+      `PayPal order ${order.orderID} created. Redirecting to Sandbox...`,
+    );
+
+    window.location.assign(order.approvalUrl);
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : 'Could not start PayPal checkout.',
+    );
+    setCheckoutMessage('');
+  } finally {
+    setBusy(false);
+  }
+};
+
 
   return <section className="space-y-6 pt-3">
     
@@ -368,7 +406,11 @@ export function Day2Workbench() {
           onClick={() => void approveAndPay()}
           className="mt-6 w-full rounded-lg bg-[#0070BA] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#005EA6] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy ? 'Starting checkout…' : 'Human Review & Continue to PayPal'}
+          {busy
+          ? 'Processing...'
+          : result.decision === 'REQUIRES_APPROVAL'
+            ? 'Review & Continue to PayPal'
+            : 'Continue to PayPal'}
         </button>
       )}
 

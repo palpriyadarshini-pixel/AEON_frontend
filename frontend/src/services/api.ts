@@ -314,6 +314,7 @@ export async function fetchCurrentUser(): Promise<CurrentUserResponse> {
 /*                                  AGENTS                                    */
 /* -------------------------------------------------------------------------- */
 
+
 export async function fetchAgents(): Promise<AgentRecord[]> {
   const [agents, budgets, summaries, policies] = await Promise.all([
     request<AgentResponse[]>(`${API_PREFIX}/agents?skip=0&limit=100`),
@@ -327,30 +328,26 @@ export async function fetchAgents(): Promise<AgentRecord[]> {
       (item) => item.agent_id === agent.id,
     );
 
-    const activeBudgets = budgets.filter(
-      (budget) =>
-        budget.agent_id === agent.id && budget.is_active,
+    // Backend selects the newest active agent budget.
+    // If none exists, it falls back to the newest active
+    // organization-wide budget.
+    const activeBudgets = budgets
+      .filter((budget) => budget.is_active)
+      .sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() -
+          new Date(a.created_at).getTime(),
+      );
+
+    const agentBudget = activeBudgets.find(
+      (budget) => budget.agent_id === agent.id,
     );
 
-    const allocated = activeBudgets.reduce(
-      (sum, budget) => sum + num(budget.allocated_amount),
-      0,
+    const organizationBudget = activeBudgets.find(
+      (budget) => budget.agent_id == null,
     );
 
-    const available = activeBudgets.reduce(
-      (sum, budget) => sum + num(budget.available_amount),
-      0,
-    );
-
-    const reserved = activeBudgets.reduce(
-      (sum, budget) => sum + num(budget.reserved_amount),
-      0,
-    );
-
-    const spent = activeBudgets.reduce(
-      (sum, budget) => sum + num(budget.spent_amount),
-      0,
-    );
+    const effectiveBudget = agentBudget ?? organizationBudget;
 
     const assignedPolicy = policies.find(
       (policy) => policy.name === summary?.assigned_policy_name,
@@ -360,36 +357,48 @@ export async function fetchAgents(): Promise<AgentRecord[]> {
       ?.slice()
       .sort((a, b) => b.version - a.version)[0];
 
-    const budgetAmount =
-      allocated || num(summary?.assigned_budget_allocated);
-
-    const spentAmount =
-      spent || num(summary?.assigned_budget_spent);
-
     return {
       id: agent.id,
       name: agent.name,
       description: agent.description,
       is_active: agent.is_active,
       created_at: agent.created_at,
-      budget: budgetAmount,
-      remaining_budget: activeBudgets.length
-        ? available
-        : Math.max(0, budgetAmount - spentAmount - reserved),
-      spent_amount: spentAmount,
-      reserved_amount: reserved,
-      currency: activeBudgets[0]?.currency ?? 'USD',
-      allowed_vendors: latestVersion?.allowed_suppliers ?? [],
-      assigned_policy_name: summary?.assigned_policy_name ?? null,
+
+      budget: effectiveBudget
+        ? num(effectiveBudget.allocated_amount)
+        : 0,
+
+      remaining_budget: effectiveBudget
+        ? num(effectiveBudget.available_amount)
+        : 0,
+
+      spent_amount: effectiveBudget
+        ? num(effectiveBudget.spent_amount)
+        : 0,
+
+      reserved_amount: effectiveBudget
+        ? num(effectiveBudget.reserved_amount)
+        : 0,
+
+      currency: effectiveBudget?.currency ?? 'USD',
+
+      allowed_vendors:
+        latestVersion?.allowed_suppliers ?? [],
+
+      assigned_policy_name:
+        summary?.assigned_policy_name ?? null,
     };
   });
 }
+
+
 
 export async function createAgent(payload: {
   name: string;
   budget: number;
   allowed_vendors: string[];
   max_single_purchase?: number;
+  approval_threshold?: number;
 }): Promise<AgentRecord & { raw_api_key: string }> {
   if (payload.name.trim().length < 2) {
     throw new Error('Agent name must contain at least 2 characters.');
@@ -406,6 +415,18 @@ export async function createAgent(payload: {
   ) {
     throw new Error(
       'Maximum single purchase must be positive and cannot exceed the total budget.',
+    );
+  }
+
+  // Default automatic approval threshold: $5.00 USD.
+  const approvalThreshold = payload.approval_threshold ?? 5;
+
+  if (
+    !Number.isFinite(approvalThreshold) ||
+    approvalThreshold < 0
+  ) {
+    throw new Error(
+      'Approval threshold must be zero or greater.',
     );
   }
 
@@ -442,7 +463,7 @@ export async function createAgent(payload: {
             payload.max_single_purchase ?? payload.budget,
           ),
           max_amount_per_day: String(payload.budget),
-          approval_threshold_amount: '0.00',
+          approval_threshold_amount: String(approvalThreshold),
           allowed_suppliers: payload.allowed_vendors,
           allowed_currencies: ['USD'],
         }),
@@ -493,6 +514,7 @@ export async function createAgent(payload: {
     raw_api_key: key,
   };
 }
+
 
 export async function updateAgent(
   agentId: string,
@@ -582,10 +604,29 @@ export async function createPolicyVersion(
   );
 }
 
+
 export async function assignPolicy(
   agentId: string,
   policyId: string,
 ) {
+  const currentAssignment = await request<{
+    id: string;
+    agent_id: string;
+    policy_id: string;
+    is_active: boolean;
+  } | null>(
+    `${API_PREFIX}/policies/assignments/${encodeURIComponent(agentId)}`,
+  );
+
+  if (
+    currentAssignment?.is_active &&
+    currentAssignment.policy_id !== policyId
+  ) {
+    throw new Error(
+      'This agent already has an active policy. The current backend does not provide an endpoint to deactivate or replace an assignment.',
+    );
+  }
+
   return request(
     `${API_PREFIX}/policies/assignments/${encodeURIComponent(agentId)}`,
     {
@@ -594,6 +635,7 @@ export async function assignPolicy(
     },
   );
 }
+
 
 /* -------------------------------------------------------------------------- */
 /*                                   BUDGETS                                  */
