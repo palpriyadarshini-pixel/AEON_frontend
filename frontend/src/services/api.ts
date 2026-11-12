@@ -98,7 +98,35 @@ export function clearSession(): void {
 }
 
 function agentKey(agentId: string): string | null {
-  return sessionStorage.getItem(`${AGENT_KEY_PREFIX}${agentId}`);
+  const existing = sessionStorage.getItem(`${AGENT_KEY_PREFIX}${agentId}`);
+  if (existing) return existing;
+
+  if (API_MODE === 'demo') {
+    if (agentId === 'demo-agent-procurement') {
+      const demoKey = 'aeon_demo_procurement_key';
+      sessionStorage.setItem(`${AGENT_KEY_PREFIX}${agentId}`, demoKey);
+      return demoKey;
+    }
+    if (agentId === 'demo-agent-operations') {
+      const demoKey = 'aeon_demo_operations_key';
+      sessionStorage.setItem(`${AGENT_KEY_PREFIX}${agentId}`, demoKey);
+      return demoKey;
+    }
+  }
+
+  return null;
+}
+
+export function getAgentApiKey(agentId: string): string | null {
+  return agentKey(agentId);
+}
+
+export function setAgentApiKey(agentId: string, apiKey: string): void {
+  sessionStorage.setItem(`${AGENT_KEY_PREFIX}${agentId}`, apiKey.trim());
+}
+
+export function hasAgentApiKey(agentId: string): boolean {
+  return Boolean(agentKey(agentId));
 }
 
 const num = (value: unknown): number => {
@@ -720,7 +748,7 @@ export async function submitPurchase(payload: {
 
   if (!key) {
     throw new Error(
-      'No API key is stored for this agent in the current browser session.',
+      'No API key is stored for this agent in the current browser session. Use "Generate / Rotate Key" or paste the agent API key.',
     );
   }
 

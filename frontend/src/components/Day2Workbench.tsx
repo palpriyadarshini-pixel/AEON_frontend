@@ -1,5 +1,15 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { AgentRecord, approvePurchase, createPayPalOrder, fetchAgents, PurchaseResult, submitPurchase } from '../services/api';
+import {
+  AgentRecord,
+  approvePurchase,
+  createPayPalOrder,
+  fetchAgents,
+  PurchaseResult,
+  submitPurchase,
+  hasAgentApiKey,
+  setAgentApiKey,
+  rotateAgentKey,
+} from '../services/api';
 
 export function Day2Workbench() {
   const [agents, setAgents] = useState<AgentRecord[]>([]);
@@ -13,6 +23,58 @@ export function Day2Workbench() {
   const [checkoutMessage, setCheckoutMessage] = useState('');
   const [refreshingAgents, setRefreshingAgents] = useState(false);
   const [agentRefreshMessage, setAgentRefreshMessage] = useState('');
+
+  const [hasKey, setHasKey] = useState(false);
+  const [rotatingKey, setRotatingKey] = useState(false);
+  const [showKeyInput, setShowKeyInput] = useState(false);
+  const [customKeyInput, setCustomKeyInput] = useState('');
+  const [keySuccessMessage, setKeySuccessMessage] = useState('');
+
+  const updateKeyStatus = (id: string) => {
+    if (!id) {
+      setHasKey(false);
+      return;
+    }
+    setHasKey(hasAgentApiKey(id));
+  };
+
+  const handleSelectAgent = (id: string) => {
+    setAgentId(id);
+    updateKeyStatus(id);
+    setKeySuccessMessage('');
+    setShowKeyInput(false);
+  };
+
+  const handleRotateKey = async () => {
+    if (!agentId || rotatingKey) return;
+    setRotatingKey(true);
+    setError('');
+    setKeySuccessMessage('');
+    try {
+      const res = await rotateAgentKey(agentId);
+      setHasKey(true);
+      setKeySuccessMessage(
+        `New API key generated and loaded into this session (${res.key_prefix || res.raw_api_key.slice(0, 12)}…)`,
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to generate/rotate agent key',
+      );
+    } finally {
+      setRotatingKey(false);
+    }
+  };
+
+  const handleSaveCustomKey = () => {
+    if (!agentId || !customKeyInput.trim()) return;
+    setAgentApiKey(agentId, customKeyInput.trim());
+    setHasKey(true);
+    setShowKeyInput(false);
+    setCustomKeyInput('');
+    setKeySuccessMessage('Agent API key stored in this browser session.');
+  };
 
   const refreshAgents = async () => {
   setRefreshingAgents(true);
@@ -30,7 +92,11 @@ export function Day2Workbench() {
     );
 
     if (!selectedAgentExists) {
-      setAgentId(rows.length > 0 ? rows[0].id : '');
+      const nextId = rows.length > 0 ? rows[0].id : '';
+      setAgentId(nextId);
+      updateKeyStatus(nextId);
+    } else {
+      updateKeyStatus(agentId);
     }
 
     setAgentRefreshMessage(
@@ -166,7 +232,7 @@ const approveAndPay = async () => {
       <select
         required
         value={agentId}
-        onChange={(e) => setAgentId(e.target.value)}
+        onChange={(e) => handleSelectAgent(e.target.value)}
         className="h-11 w-full rounded-md border border-slate-700 bg-[#0B1220] px-3 text-sm text-slate-200 outline-none transition-colors focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         >
         <option value="">Select an agent</option>
@@ -176,6 +242,76 @@ const approveAndPay = async () => {
           </option>
         ))}
       </select>
+
+      {agentId && (
+        <div className="mt-2.5 rounded-md border border-slate-800 bg-[#0B1220]/80 p-3">
+          {hasKey ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-xs font-medium text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                Agent API key loaded in browser session
+              </span>
+              <button
+                type="button"
+                onClick={handleRotateKey}
+                disabled={rotatingKey || busy}
+                className="text-xs text-indigo-400 hover:text-indigo-300 underline disabled:opacity-50"
+              >
+                {rotatingKey ? 'Rotating…' : 'Rotate Key'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-xs text-amber-300 font-medium">
+                  ⚠ No API key loaded in this browser session for this agent.
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRotateKey}
+                    disabled={rotatingKey || busy}
+                    className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+                  >
+                    {rotatingKey ? 'Generating…' : '⚡ Generate / Rotate Key'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowKeyInput(!showKeyInput)}
+                    className="rounded border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-700"
+                  >
+                    {showKeyInput ? 'Cancel' : 'Paste Key'}
+                  </button>
+                </div>
+              </div>
+
+              {showKeyInput && (
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="password"
+                    placeholder="Paste agent API key (e.g. aeon_live_...)"
+                    value={customKeyInput}
+                    onChange={(e) => setCustomKeyInput(e.target.value)}
+                    className="h-8 flex-1 rounded border border-slate-700 bg-[#1A222C] px-2.5 text-xs text-slate-200 outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveCustomKey}
+                    disabled={!customKeyInput.trim()}
+                    className="h-8 rounded bg-emerald-600 px-3 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    Save Key
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {keySuccessMessage && (
+            <p className="mt-2 text-xs text-emerald-400 font-medium">{keySuccessMessage}</p>
+          )}
+        </div>
+      )}
     </label>
 
     <label className="block">

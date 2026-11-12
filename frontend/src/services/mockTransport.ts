@@ -563,13 +563,49 @@ localStorage.setItem(
   const credentialStorageKey = 'aeon_demo_credentials_v1';
 
   const getCredentials = (): Record<string, unknown>[] => {
+    let list: Record<string, unknown>[] = [];
     try {
-      return JSON.parse(
+      list = JSON.parse(
         localStorage.getItem(credentialStorageKey) || '[]',
       ) as Record<string, unknown>[];
     } catch {
-      return [];
+      list = [];
     }
+
+    const defaultCredentials = [
+      {
+        id: 'demo-cred-procurement',
+        agent_id: 'demo-agent-procurement',
+        key_prefix: 'aeon_demo_procure',
+        api_key: 'aeon_demo_procurement_key',
+        is_revoked: false,
+        revoked_at: null,
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'demo-cred-operations',
+        agent_id: 'demo-agent-operations',
+        key_prefix: 'aeon_demo_operati',
+        api_key: 'aeon_demo_operations_key',
+        is_revoked: false,
+        revoked_at: null,
+        created_at: new Date().toISOString(),
+      },
+    ];
+
+    let updated = false;
+    for (const def of defaultCredentials) {
+      if (!list.some((c) => c.agent_id === def.agent_id)) {
+        list.push(def);
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      localStorage.setItem(credentialStorageKey, JSON.stringify(list));
+    }
+
+    return list;
   };
 
   const saveCredentials = (
